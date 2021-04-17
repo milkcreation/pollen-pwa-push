@@ -1,0 +1,55 @@
+{
+  "name": "pollen-solutions/pwa-push",
+  "description": "Pollen Pwa Push component",
+  "homepage": "https://www.presstify.com/pollen-solutions/pwa-push/",
+  "keywords": [
+    "pollen-solutions",
+    "component",
+    "pwa",
+    "push"
+  ],
+  "time": "2021-04-17",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Jordy Manner",
+      "email": "jordy@presstify.com",
+      "role": "Developper"
+    }
+  ],
+  "repositories": [
+    {
+      "type": "composer",
+      "url": "https://composer.presstify.com/pollen-solutions/"
+    }
+  ],
+  "require": {
+    "php": ">=7.4",
+    "composer/installers": "~1.0",
+    "pollen-solutions/pwa": "^1.0"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^9.0",
+    "roave/security-advisories": "dev-latest"
+  },
+  "autoload": {
+    "psr-4": {
+      "Pollen\\PwaPush\\": "src"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Pollen\\PwaPush\\Test\\": "tests"
+    }
+  },
+  "suggest": {
+    "pollen-solutions/container" : "Pollen Container Component - PSR-11 ready Dependencies Injection Container."
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true,
+  "config": {
+    "optimize-autoloader": true,
+    "preferred-install": "dist",
+    "sort-packages": true
+  }
+}

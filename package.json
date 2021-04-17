@@ -1,0 +1,14 @@
+{
+  "name": "@pollen-solutions/pwa-push",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Jordy Manner",
+  "license": "ISC",
+  "devDependencies": {
+  },
+  "dependencies": {
+  }
+}
