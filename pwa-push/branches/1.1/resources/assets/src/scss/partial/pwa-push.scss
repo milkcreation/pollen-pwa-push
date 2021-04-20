@@ -1,0 +1,150 @@
+// Variables
+@import "~@pollen-solutions/pwa/resources/assets/src/scss/variables";
+@import "~@pollen-solutions/pwa/resources/assets/src/scss/mixins/elements";
+
+// Personnalisation
+.PwaPush--fixed {
+  display: flex;
+  position: fixed;
+  z-index: 9999;
+  right: 0;
+  top: 40%;
+  bottom: auto;
+  left: auto;
+  transform: translate(100%, 0);
+  flex-direction: column;
+  align-items: flex-start;
+  row-gap: 15px;
+  max-width: 350px;
+  padding: 15px 30px;
+  transition: transform 400ms ease-in-out;
+
+  &.show {
+    transform: translate(0, 0);
+  }
+}
+
+.PwaPush,
+.PwaPush-handler {
+  background-color: pwaColor(purple);
+}
+
+.PwaPush-title,
+.PwaPush-content {
+  color: pwaColor(white);
+  margin: 0;
+  padding: 0;
+}
+
+.PwaPush-handler {
+  position: absolute;
+  display: none;
+  top: 34px;
+  left: 0;
+  transform: translate(-100%, 0);
+  width: 32px;
+  height: 32px;
+  z-index: 10000;
+
+  svg {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    margin-top:-9px;
+    margin-left:-9px;
+    width: 18px;
+    height: 18px;
+    fill: white;
+  }
+
+  &,
+  &:hover,
+  &:active,
+  &:focus,
+  &:visited {
+    color: pwaColor(white);
+  }
+}
+
+.PwaPush-title {
+  font-size: 18px;
+}
+
+.PwaPush-content {
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.PwaPush-switch {
+  position: relative;
+  display: inline-block;
+  width: 33px;
+  height: 18px;
+
+  input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  span {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: pwaColor(white);
+    transition: .2s;
+    border-radius: 18px;
+
+    &::before {
+      position: absolute;
+      content: " ";
+      height: 14px;
+      width: 14px;
+      left: 2px;
+      bottom: 2px;
+      background-color: pwaColor(light);
+      transition: .2s;
+      border-radius: 50%;
+    }
+  }
+
+  input[disabled] + span {
+    opacity: .5;
+  }
+
+  input:checked + span {
+    background-color: pwaColor(blue);
+
+    &::before {
+      background-color: pwaColor(white);
+      transform: translateX(14px);
+    }
+  }
+
+  input:focus + span {
+    box-shadow: 0 0 1px pwaColor(blue);
+  }
+}
+
+.PwaPush-close {
+  display: block;
+  position: absolute;
+  border: none;
+  background-color: transparent;
+  top: 5px;
+  right: 5px;
+  text-decoration: none;
+  font-size: 14px;
+  line-height: 1;
+
+  &,
+  &:hover,
+  &:active,
+  &:focus,
+  &:visited {
+    color: pwaColor(white);
+  }
+}
