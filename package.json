@@ -1,6 +1,6 @@
 {
   "name": "@pollen-solutions/pwa-push",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -10,5 +10,8 @@
   "devDependencies": {
   },
   "dependencies": {
+    "@pollen-solutions/partial": "file:../partial/",
+    "@pollen-solutions/pwa": "file:../pwa/",
+    "@pollen-solutions/support": "file:../support/"
   }
 }
