@@ -42,11 +42,20 @@ interface PwaPushInterface extends
     public function dbMigrate(): void;
 
     /**
+     * Activation du mode de test.
+     *
+     * @param bool $testModeEnabled
+     *
+     * @return static
+     */
+    public function enableTestMode(bool $testModeEnabled = true): PwaPushInterface;
+
+    /**
      * Récupération de la clé publique d'authentification.
      *
      * @return string
      *
-     * @throws \Pollen\PwaPush\PwaPushMissingPublicKey
+     * @throws \Pollen\PwaPush\Exception\PwaPushMissingPublicKey
      */
     public function getPublicKey(): string;
 
@@ -55,9 +64,16 @@ interface PwaPushInterface extends
      *
      * @return string
      *
-     * @throws \Pollen\PwaPush\PwaPushMissingPrivateKey
+     * @throws \Pollen\PwaPush\Exception\PwaPushMissingPrivateKey
      */
     public function getPrivateKey(): string;
+
+    /**
+     * Vérification d'activation du mode de test.
+     *
+     * @return bool
+     */
+    public function isTestModeEnabled(): bool;
 
     /**
      * Définition de la clé publique d'authentification.

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Pollen\PwaPush;
+namespace Pollen\PwaPush\Exception;
 
 use InvalidArgumentException;
 use Throwable;

@@ -7,6 +7,7 @@ namespace Pollen\PwaPush;
 use Pollen\Container\BaseServiceProvider;
 use Pollen\Pwa\PwaInterface;
 use Pollen\PwaPush\Controller\PwaPushController;
+use Pollen\PwaPush\Middleware\PwaPushTestMiddleware;
 
 class PwaPushServiceProvider extends BaseServiceProvider
 {
@@ -16,7 +17,8 @@ class PwaPushServiceProvider extends BaseServiceProvider
      */
     protected $provides = [
         PwaPushInterface::class,
-        PwaPushController::class
+        PwaPushController::class,
+        'routing.middleware.pwa-push.test',
     ];
 
     /**
@@ -44,5 +46,9 @@ class PwaPushServiceProvider extends BaseServiceProvider
                 );
             }
         );
+
+        $this->getContainer()->add('routing.middleware.pwa-push.test', function () {
+           return new PwaPushTestMiddleware($this->getContainer()->get(PwaPushInterface::class));
+        });
     }
 }
