@@ -7,6 +7,7 @@ namespace Pollen\PwaPush;
 use ErrorException;
 use Illuminate\Database\Schema\Blueprint;
 use Minishlink\WebPush\VAPID;
+use Pollen\PwaPush\Middleware\PwaPushTestMiddleware;
 use Pollen\Routing\RouteGroupInterface;
 use Pollen\Support\Concerns\BootableTrait;
 use Pollen\Support\Concerns\ConfigBagAwareTrait;
@@ -22,6 +23,8 @@ use Pollen\Pwa\PwaInterface;
 use Pollen\Pwa\PwaProxy;
 use Pollen\PwaPush\Controller\PwaPushController;
 use Pollen\PwaPush\Controller\PwaPushTestController;
+use Pollen\PwaPush\Exception\PwaPushMissingPublicKey;
+use Pollen\PwaPush\Exception\PwaPushMissingPrivateKey;
 use Pollen\PwaPush\Partial\PwaPushPartial;
 use Psr\Container\ContainerInterface as Container;
 
@@ -55,6 +58,12 @@ class PwaPush implements PwaPushInterface
      * @var string
      */
     private $privateKey;
+
+    /**
+     * Activation du mode de test.
+     * @var bool
+     */
+    protected $testModeEnabled = false;
 
     /**
      * @param PwaInterface $pwa
@@ -113,20 +122,32 @@ class PwaPush implements PwaPushInterface
 
             /** Routage */
             // - Push Testeur
-            $this->router()->group('/api/pwa-push/test', function (RouteGroupInterface $router) {
+            $routeTest = $this->router()->group('/api/pwa-push/test-mode', function (RouteGroupInterface $router) {
                 $pushTestController = new PwaPushTestController($this);
 
-                $router->get('styles.css', [$pushTestController, 'cssStyles']);
-                $router->get('scripts.js', [$pushTestController, 'jsScripts']);
                 $router->get('sw.js', [$pushTestController, 'serviceWorker']);
                 $router->get('badge.png', [$pushTestController, 'badgeRender']);
                 $router->get('icon.png', [$pushTestController, 'iconRender']);
-                $router->get('index.html', [$pushTestController, 'htmlRender']);
-                $router->xhr('subscription', [$pushTestController, 'xhrSubscription']);
-                $router->xhr('subscription', [$pushTestController, 'xhrSubscription'], 'PUT');
-                $router->xhr('subscription', [$pushTestController, 'xhrSubscription'], 'DELETE');
-                $router->xhr('send', [$pushTestController, 'xhrSend']);
+
+                $router->get('tester.styles.css', [$pushTestController, 'testerStyles']);
+                $router->get('tester.scripts.js', [$pushTestController, 'testerScripts']);
+                $router->xhr('tester.subscription', [$pushTestController, 'xhrSubscription']);
+                $router->xhr('tester.subscription', [$pushTestController, 'xhrSubscription'], 'PUT');
+                $router->xhr('tester.subscription', [$pushTestController, 'xhrSubscription'], 'DELETE');
+                $router->xhr('tester.send', [$pushTestController, 'testerXhrSend']);
+                $router->get('tester', [$pushTestController, 'testerRender']);
+
+                $router->get('notifier.styles.css', [$pushTestController, 'notifierStyles']);
+                $router->get('notifier.scripts.js', [$pushTestController, 'notifierScripts']);
+                $router->xhr('notifier.send', [$pushTestController, 'notifierXhrSend']);
+                $router->get('notifier', [$pushTestController, 'notifierRender']);
             });
+
+            if ($this->getContainer()) {
+                $routeTest->middle('pwa-push.test');
+            } else {
+                $routeTest->middleware(new PwaPushTestMiddleware($this));
+            }
 
             $pushController = $this->containerHas(PwaPushController::class) ?
                 PwaPushController::class : new PwaPushController($this);
@@ -134,9 +155,6 @@ class PwaPush implements PwaPushInterface
             $this->router()->xhr('/api/pwa-push/subscription', [$pushController, 'xhrSubscription']);
             $this->router()->xhr('/api/pwa-push/subscription', [$pushController, 'xhrSubscription'], 'PUT');
             $this->router()->xhr('/api/pwa-push/subscription', [$pushController, 'xhrSubscription'], 'DELETE');
-            $this->router()->get('/api/pwa-push/notifier', [$pushController, 'notifier']);
-            $this->router()->xhr('/api/pwa-push/notifier-send', [$pushController, 'notifierSend']);
-            $this->router()->get('/api/pwa-push/sw.js', [$pushController, 'serviceWorker']);
 
             $this->setBooted();
 
@@ -195,6 +213,16 @@ class PwaPush implements PwaPushInterface
     /**
      * @inheritDoc
      */
+    public function enableTestMode(bool $testModeEnabled = true): PwaPushInterface
+    {
+        $this->testModeEnabled =  $testModeEnabled;
+
+        return $this;
+    }
+
+    /**
+     * @inheritDoc
+     */
     public function getPublicKey(): string
     {
         if ($this->publicKey !== null) {
@@ -212,6 +240,14 @@ class PwaPush implements PwaPushInterface
             return $this->privateKey;
         }
         throw new PwaPushMissingPrivateKey();
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function isTestModeEnabled(): bool
+    {
+        return $this->testModeEnabled;
     }
 
     /**

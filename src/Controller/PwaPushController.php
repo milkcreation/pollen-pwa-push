@@ -5,48 +5,11 @@ declare(strict_types=1);
 namespace Pollen\PwaPush\Controller;
 
 use Carbon\Carbon;
-use Pollen\Http\JsonResponseInterface;
 use Pollen\Http\ResponseInterface;
 use Pollen\PwaPush\Eloquent\Subscriber;
 
 class PwaPushController extends AbstractPwaPushController
 {
-    /**
-     * @return ResponseInterface
-     */
-    public function notifier(): ResponseInterface
-    {
-        return $this->view('notifier');
-    }
-
-    /**
-     * @return JsonResponseInterface
-     */
-    public function notifierSend(): JsonResponseInterface
-    {
-        $subscribers = Subscriber::on()->get();
-
-        $reports = [];
-        /** @var Subscriber $subscriber */
-        foreach ($subscribers as $subscriber) {
-            $reports[] = $this->send(
-                $subscriber->subscription,
-                [
-                    'title'              => 'Pwa Push Test >> Ok !!',
-                    'body'               => 'Hello World ! 👋',
-                    /** @see https://appmakers.dev/bcp-47-language-codes-list/ */
-                    'lang'               => 'fr-FR',
-                    'requireInteraction' => true,
-                    'silent'             => false,
-                    'tag'                => md5('pwa-push' . uniqid('', true)),
-                    'vibrate'            => 300,
-                ]
-            );
-        }
-
-        return $this->json(['success' => true, 'data' => $reports]);
-    }
-
     /**
      * Service Worker de la page de test.
      *

@@ -4,8 +4,9 @@ import Observer from '@pollen-solutions/support/resources/assets/src/js/mutation
 
 class PwaPush {
   constructor(el, options = {}) {
+    this.debug = false
+
     this.initialized = false
-    this.debug = true
 
     this.options = {
       classes: {
@@ -25,16 +26,6 @@ class PwaPush {
       handler: 'handler'
     }
 
-    this.l10n = {
-      button_default: 'Activer/Désactiver',
-      sending: 'Envoyer',
-      enabled: 'Désactiver',
-      disabled: 'Activer',
-      computing: 'Chargement...',
-      incompatible: 'Indisponible depuis ce navigateur',
-      please_enabling: 'Veuillez d\'abord activer les notifications !',
-    }
-
     this.el = el
     this.elClose = null
     this.elHandler = null
@@ -42,22 +33,6 @@ class PwaPush {
     this.isPushEnabled = false
 
     this._initOptions(options)
-
-    this.endpoint = this.option('endpoint')
-    if (this.endpoint === null) {
-      console.error('Pwa Push: Subscribe endpoint is required.')
-      return
-    }
-
-    this.publicKey = this.option('public_key')
-    if (this.publicKey === null) {
-      console.error('Pwa Push: Public key is required.')
-      return
-    }
-
-    this._initControls()
-    this._initEvents()
-
     this._init()
   }
 
@@ -102,24 +77,39 @@ class PwaPush {
   // Initialisation
   _init() {
     if (!('serviceWorker' in navigator)) {
-      console.warn('PwaPush unavailable : Service workers are not supported by this browser')
-      return
-    }
-
-    if (!('PushManager' in window)) {
-      console.warn('PwaPush unavailable : Push notifications are not supported by this browser')
+      console.warn('[PwaPush] Service workers are not supported by this browser')
       return
     }
 
     if (!('showNotification' in ServiceWorkerRegistration.prototype)) {
-      console.warn('PwaPush unavailable : Notifications are not supported by this browser')
+      console.warn('[PwaPush] Notifications are not supported by this browser')
       return
     }
 
     if (Notification.permission === 'denied') {
-      console.warn('PwaPush unavailable : Notifications are denied by the user')
+      console.warn('[PwaPush] Notifications are denied by the user')
       return
     }
+
+    if (!('PushManager' in window)) {
+      console.warn('[PwaPush] Push notifications are not supported by this browser')
+      return
+    }
+
+    this.endpoint = this.option('endpoint')
+    if (this.endpoint === null) {
+      console.error('[PwaPush] Subscribe endpoint is required.')
+      return
+    }
+
+    this.publicKey = this.option('public_key')
+    if (this.publicKey === null) {
+      console.error('[PwaPush] Public key is required.')
+      return
+    }
+
+    this._initControls()
+    this._initEvents()
 
     navigator.serviceWorker.ready
         .then(serviceWorkerRegistration => serviceWorkerRegistration.pushManager.getSubscription())
@@ -134,13 +124,13 @@ class PwaPush {
         })
         .then(subscription => subscription && this._changeState('enabled'))
         .catch(e => {
-          console.error('Error when updating the subscription', e)
+          console.error('[PwaPush] Error when updating the subscription', e)
         })
 
     this.initialized = true
 
     if (this.debug) {
-      console.debug('PwaPush fully initialized')
+      console.debug('[PwaPush] fully initialized')
     }
   }
 
@@ -181,7 +171,7 @@ class PwaPush {
     }
 
     if (this.debug) {
-      console.debug('PwaPush controls initialized')
+      console.debug('[PwaPush] controls initialized')
     }
   }
 
@@ -208,19 +198,31 @@ class PwaPush {
     }
 
     if (this.elSwitch) {
-      let self = this
-
-      this.elSwitch.addEventListener('change', function () {
-        if (self.isPushEnabled) {
-          self._unsubscribe()
+      this.elSwitch.addEventListener('change', () => {
+        if (this.isPushEnabled) {
+          this._unsubscribe()
         } else {
-          self._subscribe()
+          this._subscribe()
         }
       })
     }
 
+    document.addEventListener('click', e => {
+      let outside = true
+
+      for (let node = e.target; node !== document.body; node = node.parentNode) {
+        if (node.classList.contains('PwaPush')) {
+          outside = false
+        }
+      }
+
+      if (outside) {
+        this.el.classList.toggle('show', false)
+      }
+    })
+
     if (this.debug) {
-      console.debug('PwaPush events initialized')
+      console.debug('[PwaPush] events initialized')
     }
   }
 
@@ -244,27 +246,23 @@ class PwaPush {
   _changeState(state) {
     switch (state) {
       case 'enabled':
-        //subscribeButton.textContent = PushTest.l10n.enabled
         this.isPushEnabled = true
         this.elSwitch.disabled = false
         this.elSwitch.checked = true
         break
       case 'disabled':
-        //subscribeButton.textContent = PushTest.l10n.disabled
         this.isPushEnabled = false
         this.elSwitch.disabled = false
         this.elSwitch.checked = false
         break
       case 'computing':
-        //subscribeButton.textContent = PushTest.l10n.computing
         this.elSwitch.disabled = true
         break
       case 'incompatible':
-        //subscribeButton.textContent = PushTest.l10n.incompatible
         this.elSwitch.disabled = true
         break
       default:
-        console.error('Pwa Push: Unhandled push button state', state)
+        console.error('[PwaPush] Unhandled push button state', state)
         break
     }
   }
@@ -272,7 +270,7 @@ class PwaPush {
   _checkNotificationPermission() {
     return new Promise((resolve, reject) => {
       if (Notification.permission === 'denied') {
-        return reject(new Error('Pwa Push: Push messages are blocked.'))
+        return reject(new Error('[PwaPush] Push messages are blocked.'))
       }
       if (Notification.permission === 'granted') {
         return resolve()
@@ -280,13 +278,13 @@ class PwaPush {
       if (Notification.permission === 'default') {
         return Notification.requestPermission().then(result => {
           if (result !== 'granted') {
-            reject(new Error('Pwa Push: Bad permission result'))
+            reject(new Error('[PwaPush] Bad permission result'))
           } else {
             resolve()
           }
         })
       }
-      return reject(new Error('Pwa Push: Unknown permission'))
+      return reject(new Error('[PwaPush] Unknown permission'))
     })
   }
 
@@ -307,10 +305,10 @@ class PwaPush {
         .then(subscription => subscription && this._changeState('enabled'))
         .catch(e => {
           if (Notification.permission === 'denied') {
-            console.warn('Notifications are denied by the user.')
+            console.warn('[PwaPush] Notifications are denied by the user.')
             this._changeState('incompatible')
           } else {
-            console.error('Impossible to subscribe to push notifications', e)
+            console.error('[PwaPush] Impossible to subscribe to push notifications', e)
             this._changeState('disabled')
           }
         })
@@ -332,7 +330,7 @@ class PwaPush {
         .then(subscription => subscription.unsubscribe())
         .then(() => this._changeState('disabled'))
         .catch(e => {
-          console.error('Error when unsubscribing the user', e)
+          console.error('[PwaPush] Error when unsubscribing the user', e)
           this._changeState('disabled')
         })
   }
@@ -356,24 +354,24 @@ class PwaPush {
         contentEncoding = (PushManager.supportedContentEncodings || ['aesgcm'])[0]
 
     return fetch(this.endpoint, {
-        method: method,
-        headers: {
-          'Content-type': 'application/json; charset=UTF-8',
-          'X-Requested-with': 'XMLHttpRequest'
-        },
-        body: JSON.stringify({
-          endpoint: subscription.endpoint,
-          publicKey: key ? btoa(String.fromCharCode.apply(null, new Uint8Array(key))) : null,
-          authToken: token ? btoa(String.fromCharCode.apply(null, new Uint8Array(token))) : null,
-          contentEncoding: contentEncoding
-        })
+      method: method,
+      headers: {
+        'Content-type': 'application/json; charset=UTF-8',
+        'X-Requested-with': 'XMLHttpRequest'
+      },
+      body: JSON.stringify({
+        endpoint: subscription.endpoint,
+        publicKey: key ? btoa(String.fromCharCode.apply(null, new Uint8Array(key))) : null,
+        authToken: token ? btoa(String.fromCharCode.apply(null, new Uint8Array(token))) : null,
+        contentEncoding: contentEncoding
       })
+    })
         .then(response => {
-            if (response.ok) {
-              return response.json()
-            }
+          if (response.ok) {
+            return response.json()
+          }
 
-            return Promise.reject(response)
+          return Promise.reject(response)
         })
         .then(json => {
           if (this.debug) {
@@ -382,7 +380,7 @@ class PwaPush {
 
           return subscription
         })
-        .catch (e => {
+        .catch(e => {
           throw e
         })
   }
