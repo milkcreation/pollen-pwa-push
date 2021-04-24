@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Pollen\PwaPush\Controller;
 
-use League\Route\Http\Exception\ForbiddenException;
 use Pollen\Http\JsonResponseInterface;
 use Pollen\Http\ResponseInterface;
 use Pollen\Http\UrlHelper;
+use Pollen\Routing\Exception\ForbiddenException;
 use Pollen\PwaPush\Eloquent\Subscriber;
 use Throwable;
 
@@ -210,7 +210,11 @@ class PwaPushTestController extends AbstractPwaPushController
         try {
             $datas = json_decode($this->httpRequest()->getContent(), true, 512, JSON_THROW_ON_ERROR);
         } catch (Throwable $e) {
-            throw new ForbiddenException($e->getMessage());
+            throw new ForbiddenException(
+                $e->getMessage(),
+                'PwaPush Test Error',
+                $e
+            );
         }
 
         try {
@@ -226,7 +230,11 @@ class PwaPushTestController extends AbstractPwaPushController
                 ]
             );
         } catch (Throwable $e) {
-            throw new ForbiddenException($e->getMessage());
+            throw new ForbiddenException(
+                $e->getMessage(),
+                'PwaPush Test Error',
+                $e
+            );
         }
     }
 }

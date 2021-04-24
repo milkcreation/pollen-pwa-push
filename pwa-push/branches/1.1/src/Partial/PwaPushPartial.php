@@ -8,10 +8,13 @@ use Pollen\Http\UrlHelper;
 use Pollen\Partial\PartialDriver;
 use Pollen\Partial\PartialManagerInterface;
 use Pollen\PwaPush\PwaPushInterface;
+use Pollen\Support\Proxy\SessionProxy;
 use Throwable;
 
 class PwaPushPartial extends PartialDriver
 {
+    use SessionProxy;
+
     /**
      * @var PwaPushInterface
      */
@@ -40,7 +43,7 @@ class PwaPushPartial extends PartialDriver
                  * Url vers la requête HTTP XHR d'abonnement aux notifications (requis)
                  * @var string
                  */
-                'endpoint'=> '',
+                'endpoint'   => '',
                 /**
                  * Clé publique d'authentification au service (requise)
                  * @var string
@@ -50,8 +53,8 @@ class PwaPushPartial extends PartialDriver
                  * Identifiant de qualification de l'utilisateur associé.
                  * @var int
                  */
-                'user_id' => 0,
-                'classes' => [
+                'user_id'    => 0,
+                'classes'    => [
                     'title'   => 'PwaPush-title',
                     'content' => 'PwaPush-content',
                     'close'   => 'PwaPush-close',
@@ -61,14 +64,14 @@ class PwaPushPartial extends PartialDriver
                 /**
                  * @var string fixed|fixed-bottom
                  */
-                'style'   => 'fixed',
-                'title'   => 'Activer les notifications',
-                'content' => 'L\'activation des notifications permet de rester informé des dernières nouveautés de' .
+                'style'      => 'fixed',
+                'title'      => 'Activer les notifications',
+                'content'    => 'L\'activation des notifications permet de rester informé des dernières nouveautés de' .
                     ' l\'application.',
-                'close'   => '&#x2715;',
-                'timeout' => 5000,
-                'handler' => file_get_contents($this->pwaPush->resources('assets/dist/img/bell-ico.svg')),
-                'observe' => true
+                'close'      => '&#x2715;',
+                'timeout'    => 5000,
+                'handler'    => file_get_contents($this->pwaPush->resources('assets/dist/img/bell-ico.svg')),
+                'observe'    => true,
             ]
         );
     }
@@ -117,17 +120,21 @@ class PwaPushPartial extends PartialDriver
         if (!$this->get('public_key')) {
             try {
                 $this->set('public_key', $this->pwaPush->getPublicKey());
-            } catch(Throwable $e) {
+            } catch (Throwable $e) {
                 throw $e;
             }
         }
 
-        $this->set([
-            'attrs.data-options' => [
-                'endpoint' => $this->get('endpoint'),
-                'public_key' => $this->get('public_key'),
+        $this->set(
+            [
+                'attrs.data-options' => [
+                    'endpoint'   => $this->get('endpoint'),
+                    'public_key' => $this->get('public_key'),
+                    'user_id'    => $this->get('user_id'),
+                    'token'      => $this->session()->getToken()
+                ],
             ]
-       ]);
+        );
 
         return parent::render();
     }

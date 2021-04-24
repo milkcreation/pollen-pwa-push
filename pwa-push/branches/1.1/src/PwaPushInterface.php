@@ -35,11 +35,18 @@ interface PwaPushInterface extends
     public function boot(): PwaPushInterface;
 
     /**
-     * Création de la table de base de données.
+     * Création de la table de base de données des abonnés.
      *
      * @return void
      */
-    public function dbMigrate(): void;
+    public function dbMigrateSubscribers(): void;
+
+    /**
+     * Création de la table de base de données des messages.
+     *
+     * @return void
+     */
+    public function dbMigrateMessages(): void;
 
     /**
      * Activation du mode de test.
