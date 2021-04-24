@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Pollen\PwaPush\Eloquent;
 
 use Carbon\Carbon;
-use Illuminate\Database\Eloquent\Model;
+use Pollen\Database\Drivers\Laravel\Eloquent\AbstractModel;
 
 /**
  * @property-read int $id
@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $user_id
  * @property-read array $subscription
  */
-class Subscriber extends Model
+class Subscriber extends AbstractModel
 {
     /**
      * @param array $attributes

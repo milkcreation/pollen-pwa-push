@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Pollen\PwaPush\Middleware;
 
-use League\Route\Http\Exception\NotFoundException;
 use Psr\Http\Message\ResponseInterface as PsrResponse;
 use Psr\Http\Message\ServerRequestInterface as PsrRequest;
 use Psr\Http\Server\RequestHandlerInterface;
 use Pollen\Routing\BaseMiddleware;
+use Pollen\Routing\Exception\NotFoundException;
 use Pollen\PwaPush\PwaPushInterface;
 
 class PwaPushTestMiddleware extends BaseMiddleware
@@ -36,6 +36,10 @@ class PwaPushTestMiddleware extends BaseMiddleware
         if ($this->pwaPush->isTestModeEnabled()) {
             return $handler->handle($request);
         }
-        throw new NotFoundException();
+
+        throw new NotFoundException(
+            'PwaPush Test is disabled.',
+            'PwaPush Test disabled'
+        );
     }
 }

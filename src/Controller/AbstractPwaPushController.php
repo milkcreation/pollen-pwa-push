@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace Pollen\PwaPush\Controller;
 
-use League\Route\Http\Exception\ForbiddenException;
 use Minishlink\WebPush\MessageSentReport;
 use Minishlink\WebPush\WebPush;
 use Minishlink\WebPush\Subscription;
 use Pollen\Http\JsonResponseInterface;
 use Pollen\Routing\BaseViewController;
+use Pollen\Routing\Exception\ForbiddenException;
 use Pollen\PwaPush\PwaPushInterface;
+
 use Psr\Container\ContainerInterface as Container;
 use Throwable;
 
@@ -208,28 +209,27 @@ abstract class AbstractPwaPushController extends BaseViewController
      */
     public function xhrSubscription(): JsonResponseInterface
     {
-        try {
-            $subscription = json_decode($this->httpRequest()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $user_id = $this->httpRequest()->input()->pull('userID') ?: 0;
+        $subscription = $this->httpRequest()->input()->all();
 
-            if (!isset($subscription['endpoint'])) {
-                throw new ForbiddenException(
-                    'PwaPush: Subscription Invalid >> Endpoint subscription missing'
-                );
-            }
-        } catch (Throwable $e) {
-            throw new ForbiddenException('PwaPush: Subscription is invalid');
+        if (!isset($subscription['endpoint'])) {
+            throw new ForbiddenException(
+                'PwaPush: Subscription Invalid >> Endpoint subscription missing',
+                'PwaPush Error'
+            );
         }
 
         switch ($method = $this->httpRequest()->getMethod()) {
             case 'POST':
-                return $this->json($this->subscriptionCreate($subscription));
+                return $this->json($this->subscriptionCreate($subscription, $user_id));
             case 'DELETE':
-                return $this->json($this->subscriptionDelete($subscription));
+                return $this->json($this->subscriptionDelete($subscription, $user_id));
             case 'PUT':
-                return $this->json($this->subscriptionUpdate($subscription));
+                return $this->json($this->subscriptionUpdate($subscription, $user_id));
             default:
                 throw new ForbiddenException(
-                    sprintf('PwaPush: Subscription HTTP request method [%s] not handled', $method)
+                    sprintf('PwaPush: Subscription HTTP request method [%s] not handled', $method),
+                    'PwaPush Error'
                 );
         }
     }

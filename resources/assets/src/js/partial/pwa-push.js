@@ -108,6 +108,14 @@ class PwaPush {
       return
     }
 
+    this.token = this.option('token')
+    if (this.token === null) {
+      console.error('[PwaPush] Token protection against CSRF attacks is required.')
+      return
+    }
+
+    this.userID = this.option('user_id')
+
     this._initControls()
     this._initEvents()
 
@@ -363,14 +371,16 @@ class PwaPush {
         endpoint: subscription.endpoint,
         publicKey: key ? btoa(String.fromCharCode.apply(null, new Uint8Array(key))) : null,
         authToken: token ? btoa(String.fromCharCode.apply(null, new Uint8Array(token))) : null,
-        contentEncoding: contentEncoding
+        contentEncoding: contentEncoding,
+        token:this.token,
+        userID: this.userID,
       })
     })
         .then(response => {
           if (response.ok) {
             return response.json()
           }
-
+          console.log(response)
           return Promise.reject(response)
         })
         .then(json => {

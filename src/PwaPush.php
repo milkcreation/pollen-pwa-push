@@ -82,6 +82,8 @@ class PwaPush implements PwaPushInterface
             $this->setContainer($container);
         }
 
+        $this->setResourcesBaseDir(dirname(__DIR__) . '/resources');
+
         if ($this->config('boot_enabled', true)) {
             $this->boot();
         }
@@ -183,16 +185,16 @@ class PwaPush implements PwaPushInterface
     /**
      * @inheritDoc
      */
-    public function dbMigrate(): void
+    public function dbMigrateSubscribers(): void
     {
         $db = $this->db();
 
         $db->addConnection(
             array_merge($db->getConnection()->getConfig(), ['strict' => false]),
-            'pwa-push'
+            'pwa-push.subscribers'
         );
 
-        $schema = $db->getConnection('pwa-push')->getSchemaBuilder();
+        $schema = $db->getConnection('pwa-push.subscribers')->getSchemaBuilder();
 
         if (!$schema->hasTable('pwa_push_subscriber')) {
             $schema->create('pwa_push_subscriber', function (Blueprint $table) {
@@ -206,6 +208,31 @@ class PwaPush implements PwaPushInterface
                 $table->bigInteger('user_id')->default(0);
                 $table->index('id', 'id');
                 $table->index('user_id', 'user_id');
+            });
+        }
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function dbMigrateMessages(): void
+    {
+        $db = $this->db();
+
+        $db->addConnection(
+            array_merge($db->getConnection()->getConfig(), ['strict' => false]),
+            'pwa-push.messages'
+        );
+
+        $schema = $db->getConnection('pwa-push.messages')->getSchemaBuilder();
+
+        if (!$schema->hasTable('pwa_push_message')) {
+            $schema->create('pwa_push_message', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->longText('payload');
+                $table->timestamp('created_at');
+                $table->timestamp('sent_at');
+                $table->index('id', 'id');
             });
         }
     }
