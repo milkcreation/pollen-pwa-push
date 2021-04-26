@@ -4,7 +4,15 @@ declare(strict_types=1);
 
 namespace Pollen\PwaPush;
 
+use Minishlink\WebPush\MessageSentReport;
+use Minishlink\WebPush\SubscriptionInterface;
+use Minishlink\WebPush\WebPush;
 use Pollen\Pwa\PwaProxyInterface;
+use Pollen\PwaPush\Exception\PwaPushMissingPublicKey;
+use Pollen\PwaPush\Exception\PwaPushMissingPrivateKey;
+use Pollen\PwaPush\Exception\PwaPushSendNotificationError;
+use Pollen\PwaPush\Exception\PwaPushSubscriptionInvalid;
+use Pollen\PwaPush\Exception\PwaPushVAPIDConnexionError;
 use Pollen\Support\Concerns\BootableTraitInterface;
 use Pollen\Support\Concerns\ConfigBagAwareTraitInterface;
 use Pollen\Support\Concerns\ResourcesAwareTraitInterface;
@@ -58,11 +66,18 @@ interface PwaPushInterface extends
     public function enableTestMode(bool $testModeEnabled = true): PwaPushInterface;
 
     /**
+     * Récupération des paramètres de message par défaut.
+     *
+     * @return array
+     */
+    public function getDefaultPayloadParams(): array;
+
+    /**
      * Récupération de la clé publique d'authentification.
      *
      * @return string
      *
-     * @throws \Pollen\PwaPush\Exception\PwaPushMissingPublicKey
+     * @throws PwaPushMissingPublicKey
      */
     public function getPublicKey(): string;
 
@@ -71,9 +86,14 @@ interface PwaPushInterface extends
      *
      * @return string
      *
-     * @throws \Pollen\PwaPush\Exception\PwaPushMissingPrivateKey
+     * @throws PwaPushMissingPrivateKey
      */
     public function getPrivateKey(): string;
+
+    /**
+     * @return string
+     */
+    public function getVAPIDSubject(): string;
 
     /**
      * Vérification d'activation du mode de test.
@@ -81,6 +101,62 @@ interface PwaPushInterface extends
      * @return bool
      */
     public function isTestModeEnabled(): bool;
+
+    /**
+     * Déclaration d'une connexion.
+     *
+     * @param string|null $publicKey
+     * @param string|null $privateKey
+     * @param string|null $subject
+     *
+     * @return WebPush
+     *
+     * @throws PwaPushVAPIDConnexionError
+     */
+    public function registerConnection(
+        ?string $publicKey = null,
+        ?string $privateKey = null,
+        ?string $subject = null
+    ): WebPush;
+
+    /**
+     * Déclaration d'un abonnement.
+     *
+     * @param array $datas
+     *
+     * @return SubscriptionInterface
+     *
+     * @throws PwaPushSubscriptionInvalid
+     */
+    public function registerSubscription(array $datas): SubscriptionInterface;
+
+    /**
+     * Envoi d'un message de notification
+     *
+     * @param SubscriptionInterface $subscription
+     * @param array $payloadParams
+     * @param WebPush|null $connexion
+     * @param array $options
+     *
+     * @return MessageSentReport
+     *
+     * @throws PwaPushSendNotificationError
+     */
+    public function sendNotification(
+        SubscriptionInterface $subscription,
+        array $payloadParams = [],
+        WebPush $connexion = null,
+        array $options = []
+    ): MessageSentReport;
+
+    /**
+     * Définition des paramètres de message par défaut.
+     *
+     * @param array $defaultPayloadParams
+     *
+     * @return static
+     */
+    public function setDefaultPayloadParams(array $defaultPayloadParams): PwaPushInterface;
 
     /**
      * Définition de la clé publique d'authentification.
@@ -99,4 +175,9 @@ interface PwaPushInterface extends
      * @return static
      */
     public function setPrivateKey(string $privateKey) : PwaPushInterface;
+
+    /**
+     * @return static
+     */
+    public function setVAPIDSubject(string $vapidSubject): PwaPushInterface;
 }

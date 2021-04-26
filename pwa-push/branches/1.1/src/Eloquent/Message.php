@@ -11,7 +11,10 @@ use Pollen\Database\Drivers\Laravel\Eloquent\Casts\SerializeCast;
 /**
  * @property-read int $id
  * @property array $payload
+ * @property array $context
  * @property Carbon $created_at
+ * @property Carbon $updated_at
+ * @property int $author_id
  * @property Carbon $send_at
  */
 class Message extends AbstractModel
@@ -24,19 +27,19 @@ class Message extends AbstractModel
         $this->table = 'pwa_push_message';
 
         $this->casts = [
-            'payload' => SerializeCast::class,
-            'sent_at' => 'datetime',
+            'payload'   => SerializeCast::class,
+            'context'   => SerializeCast::class,
+            'author_id' => 'int',
+            'send_at'   => 'datetime',
         ];
 
         $this->fillable = [
             'payload',
-            'sent_at',
+            'context',
+            'author_id',
+            'send_at',
         ];
 
         parent::__construct($attributes);
     }
-
-    public function getUpdatedAtColumn() { }
-
-    public function setUpdatedAtAttribute($value): void { }
 }

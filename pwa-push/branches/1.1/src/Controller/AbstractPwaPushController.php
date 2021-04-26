@@ -5,88 +5,55 @@ declare(strict_types=1);
 namespace Pollen\PwaPush\Controller;
 
 use Minishlink\WebPush\MessageSentReport;
-use Minishlink\WebPush\WebPush;
-use Minishlink\WebPush\Subscription;
 use Pollen\Http\JsonResponseInterface;
+use Pollen\PwaPush\Exception\PwaPushSubscriptionInvalid;
+use Pollen\PwaPush\Exception\PwaPushVAPIDConnexionError;
+use Pollen\PwaPush\PwaPushProxy;
 use Pollen\Routing\BaseViewController;
 use Pollen\Routing\Exception\ForbiddenException;
 use Pollen\PwaPush\PwaPushInterface;
-
 use Psr\Container\ContainerInterface as Container;
 use Throwable;
 
 abstract class AbstractPwaPushController extends BaseViewController
 {
+    use PwaPushProxy;
+
     /**
      * Attributs de message.
      * @see https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerRegistration/showNotification
-     *
      * @var array
      */
     protected $payloadParams = [];
 
     /**
-     * @var PwaPushInterface
-     */
-    protected $pwaPush;
-
-    /**
      * Clé publique.
-     * @var string
+     * @var string|null
      */
     protected $publicKey;
 
     /**
      * Clé privée
-     * @var string
+     * @var string|null
      */
     protected $privateKey;
 
     /**
-     * @param PwaPushInterface $pwaPush
+     * @var string|null
+     */
+    protected $vapidSubject;
+
+    /**
+     * @param PwaPushInterface|null $pwaPush
      * @param Container|null $container
      */
-    public function __construct(PwaPushInterface $pwaPush, ?Container $container = null)
+    public function __construct(?PwaPushInterface $pwaPush = null, ?Container $container = null)
     {
-        $this->pwaPush = $pwaPush;
+        if ($pwaPush !== null) {
+            $this->setPwaPush($pwaPush);
+        }
 
         parent::__construct($container);
-    }
-
-    /**
-     * Récupération de la liste des paramètres de message de notification.
-     *
-     * @return array
-     */
-    protected function getPayloadParams(): array
-    {
-        return $this->payloadParams;
-    }
-
-    /**
-     * Récupération de la clé publique.
-     *
-     * @return string
-     */
-    protected function publicKey(): string
-    {
-        if ($this->publicKey === null) {
-            $this->publicKey = $this->pwaPush->getPublicKey();
-        }
-        return $this->publicKey;
-    }
-
-    /**
-     * Récupération de la clé privée.
-     *
-     * @return string
-     */
-    protected function privateKey(): string
-    {
-        if ($this->privateKey === null) {
-            $this->privateKey = $this->pwaPush->getPrivateKey();
-        }
-        return $this->privateKey;
     }
 
     /**
@@ -98,55 +65,30 @@ abstract class AbstractPwaPushController extends BaseViewController
      *
      * @return MessageSentReport
      *
+     * @throws PwaPushSubscriptionInvalid
      * @throws Throwable
      */
     protected function send(array $datas, array $params = [], array $options = []): MessageSentReport
     {
         try {
-            $subscription = Subscription::create($datas);
-        } catch (Throwable $e) {
+            $subscription = $this->pwaPush()->registerSubscription($datas);
+        } catch (PwaPushSubscriptionInvalid $e) {
             throw $e;
         }
 
         try {
-            $publicKey = $this->publicKey();
-            $privateKey = $this->privateKey();
-
-            $webPush = new WebPush(
-                [
-                    'VAPID' => [
-                        'subject'    => $this->httpRequest()->getUriForPath(''),
-                        'publicKey'  => $publicKey,
-                        'privateKey' => $privateKey,
-                    ],
-                ]
-            );
-        } catch (Throwable $e) {
+            $connexion = $this->pwaPush()->registerConnection($this->publicKey, $this->privateKey, $this->vapidSubject);
+        } catch (PwaPushVAPIDConnexionError $e) {
             throw $e;
         }
 
         try {
-            $payload = json_encode(array_merge($this->getPayloadParams(), $params), JSON_THROW_ON_ERROR);
-            $options = array_merge([], $options);
+            $payloadParams = array_merge($this->payloadParams, $params);
 
-            return $webPush->sendOneNotification($subscription, $payload, $options);
+            return $this->pwaPush()->sendNotification($subscription, $payloadParams, $connexion, $options);
         } catch (Throwable $e) {
             throw $e;
         }
-    }
-
-    /**
-     * Définition de la liste des paramètres de message de notification.
-     *
-     * @param array $payloadParams
-     *
-     * @return self
-     */
-    public function setPayloadParams(array $payloadParams): self
-    {
-        $this->payloadParams = $payloadParams;
-
-        return $this;
     }
 
     /**
@@ -239,6 +181,6 @@ abstract class AbstractPwaPushController extends BaseViewController
      */
     public function viewEngineDirectory(): string
     {
-        return $this->pwaPush->resources('/views');
+        return $this->pwaPush()->resources('/views');
     }
 }

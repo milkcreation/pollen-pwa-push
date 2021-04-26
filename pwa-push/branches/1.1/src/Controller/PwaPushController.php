@@ -47,6 +47,8 @@ class PwaPushController extends AbstractPwaPushController
                 'endpoint'         => $subscription['endpoint'],
                 'public_key'       => $subscription['publicKey'],
                 'created_at'       => Carbon::now(),
+                'client_ip'        => $this->httpRequest()->getClientIp(),
+                'user_agent'       => $this->httpRequest()->getUserAgent(),
                 'user_id'          => $user_id,
             ]
         );
@@ -65,7 +67,7 @@ class PwaPushController extends AbstractPwaPushController
     {
         Subscriber::on()->where(
             [
-                'public_key' => $subscription['publicKey'],
+                'endpoint' => $subscription['endpoint'],
             ]
         )->delete();
 
@@ -81,45 +83,33 @@ class PwaPushController extends AbstractPwaPushController
      */
     protected function subscriptionUpdate(array $subscription, int $user_id = 0): array
     {
-        $updated = 0;
+        $subscriber = Subscriber::on()->where('endpoint', $subscription['endpoint'])->first();
 
-        if ($user_id) {
-            $updated = Subscriber::on()->where(
-                [
-                    'user_id' => $user_id,
-                ]
-            )->update(
+        if ($subscriber) {
+            $userID = empty($user_id) && !empty($subscriber->user_id) ? $subscriber->user_id : $user_id;
+            $subscriber->update(
                 [
                     'auth_token'       => $subscription['authToken'],
                     'content_encoding' => $subscription['contentEncoding'],
                     'endpoint'         => $subscription['endpoint'],
                     'public_key'       => $subscription['publicKey'],
                     'updated_at'       => Carbon::now(),
-                    'user_id'          => $user_id,
+                    'client_ip'        => $this->httpRequest()->getClientIp(),
+                    'user_agent'       => $this->httpRequest()->getUserAgent(),
+                    'user_id'          => $userID,
                 ]
             );
-        }
 
-        if (!$updated) {
-            Subscriber::on()->where(
-                [
-                    'public_key' => $subscription['publicKey'],
-                ]
-            )->updateOrCreate(
-                [
-                    'auth_token'       => $subscription['authToken'],
-                    'content_encoding' => $subscription['contentEncoding'],
-                    'endpoint'         => $subscription['endpoint'],
-                    'public_key'       => $subscription['publicKey'],
-                    'updated_at'       => Carbon::now(),
-                    'user_id'          => $user_id,
-                ]
-            );
+            return [
+                'success' => true,
+                'message' => 'PwaPush: Subscription updated.',
+                'data'    => compact('subscription', 'user_id'),
+            ];
         }
 
         return [
-            'success' => true,
-            'message' => 'PwaPush: Subscription updated.',
+            'success' => false,
+            'message' => 'PwaPush: Subscription could not updated.',
             'data'    => compact('subscription', 'user_id'),
         ];
     }

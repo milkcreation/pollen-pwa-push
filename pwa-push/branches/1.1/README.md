@@ -49,3 +49,8 @@ var_dump(PwaPush::generateKeys());
 
 #### Database Migration
 
+
+#### Payload Params
+
+-  https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerRegistration/showNotification
+-  https://appmakers.dev/bcp-47-language-codes-list/

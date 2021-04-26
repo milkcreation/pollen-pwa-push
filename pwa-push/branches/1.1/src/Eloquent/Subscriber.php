@@ -15,6 +15,8 @@ use Pollen\Database\Drivers\Laravel\Eloquent\AbstractModel;
  * @property string $public_key
  * @property Carbon $created_at
  * @property Carbon $updated_at
+ * @property string $client_ip
+ * @property string $user_agent
  * @property int $user_id
  * @property-read array $subscription
  */
@@ -32,6 +34,8 @@ class Subscriber extends AbstractModel
             'content_encoding' => 'string',
             'endpoint'         => 'string',
             'public_key'       => 'string',
+            'client_ip'        => 'string',
+            'user_agent'       => 'string',
             'user_id'          => 'integer',
         ];
 
@@ -40,6 +44,8 @@ class Subscriber extends AbstractModel
             'content_encoding',
             'endpoint',
             'public_key',
+            'client_ip',
+            'user_agent',
             'user_id',
         ];
 
