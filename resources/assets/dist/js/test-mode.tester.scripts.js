@@ -12,8 +12,8 @@
 let isPushEnabled = false
 
 const applicationServerKey = PwaPushTester.public_key,
-    $subscribeButton = document.querySelector('#PwaPushTester-button--subscribe'),
-    $sendButton = document.querySelector('#PwaPushTester-button--send'),
+    $subscribeButton = document.getElementById('PwaPushTester-button--subscribe'),
+    $sendButton = document.getElementById('PwaPushTester-button--send'),
     intialiseState = () => {
       // Are Notifications supported in the service worker?
       if (!('showNotification' in ServiceWorkerRegistration.prototype)) {

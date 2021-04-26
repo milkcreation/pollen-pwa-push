@@ -6,7 +6,21 @@ namespace Pollen\PwaPush;
 
 use ErrorException;
 use Illuminate\Database\Schema\Blueprint;
+use Minishlink\WebPush\MessageSentReport;
+use Minishlink\WebPush\Subscription;
+use Minishlink\WebPush\SubscriptionInterface;
 use Minishlink\WebPush\VAPID;
+use Minishlink\WebPush\WebPush;
+use Pollen\Pwa\PwaInterface;
+use Pollen\Pwa\PwaProxy;
+use Pollen\PwaPush\Controller\PwaPushController;
+use Pollen\PwaPush\Controller\PwaPushTestModeController;
+use Pollen\PwaPush\Exception\PwaPushMissingPublicKey;
+use Pollen\PwaPush\Exception\PwaPushMissingPrivateKey;
+use Pollen\PwaPush\Exception\PwaPushSendNotificationError;
+use Pollen\PwaPush\Exception\PwaPushSubscriptionInvalid;
+use Pollen\PwaPush\Exception\PwaPushVAPIDConnexionError;
+use Pollen\PwaPush\Partial\PwaPushPartial;
 use Pollen\PwaPush\Middleware\PwaPushTestMiddleware;
 use Pollen\Routing\RouteGroupInterface;
 use Pollen\Support\Concerns\BootableTrait;
@@ -19,14 +33,8 @@ use Pollen\Support\Proxy\EventProxy;
 use Pollen\Support\Proxy\HttpRequestProxy;
 use Pollen\Support\Proxy\PartialProxy;
 use Pollen\Support\Proxy\RouterProxy;
-use Pollen\Pwa\PwaInterface;
-use Pollen\Pwa\PwaProxy;
-use Pollen\PwaPush\Controller\PwaPushController;
-use Pollen\PwaPush\Controller\PwaPushTestController;
-use Pollen\PwaPush\Exception\PwaPushMissingPublicKey;
-use Pollen\PwaPush\Exception\PwaPushMissingPrivateKey;
-use Pollen\PwaPush\Partial\PwaPushPartial;
 use Psr\Container\ContainerInterface as Container;
+use Throwable;
 
 class PwaPush implements PwaPushInterface
 {
@@ -48,6 +56,15 @@ class PwaPush implements PwaPushInterface
     private static $instance;
 
     /**
+     * Paramètres de messages par défaut.
+     * @var array
+     */
+    protected $defaultPayloadParams = [
+        /** Requis pour un fonctionnement Desktop */
+        'requireInteraction' => true,
+    ];
+
+    /**
      * Clé publique.
      * @var string
      */
@@ -58,6 +75,11 @@ class PwaPush implements PwaPushInterface
      * @var string
      */
     private $privateKey;
+
+    /**
+     * @var string url|email
+     */
+    private $vapidSubject;
 
     /**
      * Activation du mode de test.
@@ -124,26 +146,36 @@ class PwaPush implements PwaPushInterface
 
             /** Routage */
             // - Push Testeur
-            $routeTest = $this->router()->group('/api/pwa-push/test-mode', function (RouteGroupInterface $router) {
-                $pushTestController = new PwaPushTestController($this);
+            $routeTest = $this->router()->group(
+                '/api/pwa-push/test-mode',
+                function (RouteGroupInterface $router) {
+                    $testController = new PwaPushTestModeController($this);
 
-                $router->get('sw.js', [$pushTestController, 'serviceWorker']);
-                $router->get('badge.png', [$pushTestController, 'badgeRender']);
-                $router->get('icon.png', [$pushTestController, 'iconRender']);
+                    $router->get('sw.js', [$testController, 'serviceWorker']);
+                    $router->get('test-mode.styles.css', [$testController, 'globalStyles']);
+                    $router->get('badge.png', [$testController, 'badgeRender']);
+                    $router->get('icon.png', [$testController, 'iconRender']);
 
-                $router->get('tester.styles.css', [$pushTestController, 'testerStyles']);
-                $router->get('tester.scripts.js', [$pushTestController, 'testerScripts']);
-                $router->xhr('tester.subscription', [$pushTestController, 'xhrSubscription']);
-                $router->xhr('tester.subscription', [$pushTestController, 'xhrSubscription'], 'PUT');
-                $router->xhr('tester.subscription', [$pushTestController, 'xhrSubscription'], 'DELETE');
-                $router->xhr('tester.send', [$pushTestController, 'testerXhrSend']);
-                $router->get('tester', [$pushTestController, 'testerRender']);
+                    $router->get('tester.styles.css', [$testController, 'testerStyles']);
+                    $router->get('tester.scripts.js', [$testController, 'testerScripts']);
+                    $router->xhr('tester.subscription', [$testController, 'xhrSubscription']);
+                    $router->xhr('tester.subscription', [$testController, 'xhrSubscription'], 'PUT');
+                    $router->xhr('tester.subscription', [$testController, 'xhrSubscription'], 'DELETE');
+                    $router->xhr('tester.send', [$testController, 'testerXhrSend']);
+                    $router->get('tester', [$testController, 'testerRender']);
 
-                $router->get('notifier.styles.css', [$pushTestController, 'notifierStyles']);
-                $router->get('notifier.scripts.js', [$pushTestController, 'notifierScripts']);
-                $router->xhr('notifier.send', [$pushTestController, 'notifierXhrSend']);
-                $router->get('notifier', [$pushTestController, 'notifierRender']);
-            });
+                    $router->get('notifier.styles.css', [$testController, 'notifierStyles']);
+                    $router->get('notifier.scripts.js', [$testController, 'notifierScripts']);
+                    $router->xhr('notifier.send', [$testController, 'notifierXhrSend']);
+                    $router->get('notifier', [$testController, 'notifierRender']);
+
+                    $router->get('messenger.styles.css', [$testController, 'messengerStyles']);
+                    $router->get('messenger.scripts.js', [$testController, 'messengerScripts']);
+                    $router->xhr('messenger.send', [$testController, 'messengerXhrSend']);
+                    $router->get('messenger.send', [$testController, 'messengerXhrSend']);
+                    $router->get('messenger', [$testController, 'messengerRender']);
+                }
+            );
 
             if ($this->getContainer()) {
                 $routeTest->middle('pwa-push.test');
@@ -157,6 +189,10 @@ class PwaPush implements PwaPushInterface
             $this->router()->xhr('/api/pwa-push/subscription', [$pushController, 'xhrSubscription']);
             $this->router()->xhr('/api/pwa-push/subscription', [$pushController, 'xhrSubscription'], 'PUT');
             $this->router()->xhr('/api/pwa-push/subscription', [$pushController, 'xhrSubscription'], 'DELETE');
+
+            $this->pwa()->serviceWorker()->appendScripts(
+                file_get_contents($this->resources('assets/dist/js/pwa.sw.append.js'))
+            );
 
             $this->setBooted();
 
@@ -197,18 +233,23 @@ class PwaPush implements PwaPushInterface
         $schema = $db->getConnection('pwa-push.subscribers')->getSchemaBuilder();
 
         if (!$schema->hasTable('pwa_push_subscriber')) {
-            $schema->create('pwa_push_subscriber', function (Blueprint $table) {
-                $table->bigIncrements('id');
-                $table->string('auth_token', 255);
-                $table->string('content_encoding', 255);
-                $table->string('endpoint', 255);
-                $table->string('public_key', 255);
-                $table->timestamp('created_at')->nullable();
-                $table->timestamp('updated_at')->nullable();
-                $table->bigInteger('user_id')->default(0);
-                $table->index('id', 'id');
-                $table->index('user_id', 'user_id');
-            });
+            $schema->create(
+                'pwa_push_subscriber',
+                function (Blueprint $table) {
+                    $table->bigIncrements('id');
+                    $table->string('auth_token', 255);
+                    $table->string('content_encoding', 255);
+                    $table->string('endpoint', 255);
+                    $table->string('public_key', 255);
+                    $table->timestamp('created_at')->nullable();
+                    $table->timestamp('updated_at')->nullable();
+                    $table->string('client_ip', 100);
+                    $table->string('user_agent', 255);
+                    $table->bigInteger('user_id')->default(0);
+                    $table->index('id', 'id');
+                    $table->index('user_id', 'user_id');
+                }
+            );
         }
     }
 
@@ -227,13 +268,19 @@ class PwaPush implements PwaPushInterface
         $schema = $db->getConnection('pwa-push.messages')->getSchemaBuilder();
 
         if (!$schema->hasTable('pwa_push_message')) {
-            $schema->create('pwa_push_message', function (Blueprint $table) {
-                $table->bigIncrements('id');
-                $table->longText('payload');
-                $table->timestamp('created_at');
-                $table->timestamp('sent_at');
-                $table->index('id', 'id');
-            });
+            $schema->create(
+                'pwa_push_message',
+                function (Blueprint $table) {
+                    $table->bigIncrements('id');
+                    $table->longText('payload');
+                    $table->longText('context')->nullable();
+                    $table->timestamp('created_at')->nullable();
+                    $table->timestamp('updated_at')->nullable();
+                    $table->bigInteger('author_id')->default(0)->index();
+                    $table->timestamp('send_at')->nullable();
+                    $table->index('id', 'id');
+                }
+            );
         }
     }
 
@@ -242,9 +289,17 @@ class PwaPush implements PwaPushInterface
      */
     public function enableTestMode(bool $testModeEnabled = true): PwaPushInterface
     {
-        $this->testModeEnabled =  $testModeEnabled;
+        $this->testModeEnabled = $testModeEnabled;
 
         return $this;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getDefaultPayloadParams(): array
+    {
+        return $this->defaultPayloadParams ?? [];
     }
 
     /**
@@ -272,9 +327,100 @@ class PwaPush implements PwaPushInterface
     /**
      * @inheritDoc
      */
+    public function getVAPIDSubject(): string
+    {
+        if ($this->vapidSubject === null) {
+            $this->vapidSubject =  $this->httpRequest()->getUriForPath('');
+        }
+
+        return $this->vapidSubject;
+    }
+
+    /**
+     * @inheritDoc
+     */
     public function isTestModeEnabled(): bool
     {
         return $this->testModeEnabled;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function registerConnection(
+        ?string $publicKey = null,
+        ?string $privateKey = null,
+        ?string $subject = null
+    ): WebPush {
+        $publicKey = $publicKey ?? $this->getPublicKey();
+        $privateKey = $privateKey ?? $this->getPrivateKey();
+        $subject = $subject ?? $this->getVAPIDSubject();
+
+        try {
+            return new WebPush(
+                [
+                    'VAPID' => [
+                        'subject' => $subject,
+                        'publicKey' => $publicKey,
+                        'privateKey' => $privateKey
+                    ]
+                ]
+            );
+        } catch (ErrorException $e) {
+            throw new PwaPushVAPIDConnexionError('', 0, $e);
+        }
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function registerSubscription(array $datas): SubscriptionInterface
+    {
+        try {
+            return Subscription::create($datas);
+        } catch (ErrorException $e) {
+            throw new PwaPushSubscriptionInvalid('', 0, $e);
+        }
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function sendNotification(
+        SubscriptionInterface $subscription,
+        array $payloadParams = [],
+        ?WebPush $connexion = null,
+        array $options = []
+    ): MessageSentReport {
+        if ($connexion === null) {
+            try {
+               $connexion = $this->registerConnection();
+            } catch (PwaPushVAPIDConnexionError $e) {
+                throw new PwaPushSendNotificationError($e->getMessage(), 0, $e);
+            }
+        }
+
+        try {
+            $payload = json_encode(array_merge($this->getDefaultPayloadParams(), $payloadParams), JSON_THROW_ON_ERROR);
+        } catch (Throwable $e) {
+            throw new PwaPushSendNotificationError($e->getMessage(), 0, $e);
+        }
+
+        try {
+            return $connexion->sendOneNotification($subscription, $payload, $options);
+        } catch (ErrorException $e) {
+            throw new PwaPushSendNotificationError('', 0, $e);
+        }
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setDefaultPayloadParams(array $defaultPayloadParams): PwaPushInterface
+    {
+        $this->defaultPayloadParams = $defaultPayloadParams;
+
+        return $this;
     }
 
     /**
@@ -290,9 +436,19 @@ class PwaPush implements PwaPushInterface
     /**
      * @inheritDoc
      */
-    public function setPrivateKey(string $privateKey) : PwaPushInterface
+    public function setPrivateKey(string $privateKey): PwaPushInterface
     {
         $this->privateKey = $privateKey;
+
+        return $this;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setVAPIDSubject(string $vapidSubject): PwaPushInterface
+    {
+        $this->vapidSubject = $vapidSubject;
 
         return $this;
     }

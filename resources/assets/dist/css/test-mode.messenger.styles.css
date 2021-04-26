@@ -1,0 +1,5 @@
+@import "test-mode.styles.css";
+
+.PwaPushTestMode-container {
+    max-width:640px;
+}

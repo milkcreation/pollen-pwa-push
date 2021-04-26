@@ -1,15 +1,15 @@
-/* global PwaPushNotifier */
 'use strict'
 
 document.addEventListener('DOMContentLoaded', () => {
   const $notifierSend = document.getElementById('PwaPushNotifier-form'),
         serializeForm = (form) => {
-          var obj = {};
-          var formData = new FormData(form);
-          for (var key of formData.keys()) {
-            obj[key] = formData.get(key);
+          let obj = {},
+              formData = new FormData(form)
+
+          for (let key of formData.keys()) {
+            obj[key] = formData.get(key)
           }
-          return obj;
+          return obj
         }
 
   if ('serviceWorker' in navigator) {
@@ -27,9 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $notifierSend.addEventListener('submit', e => {
     e.preventDefault()
 
-    let data = serializeForm(e.target)
-
-    console.log(data);
+    const data = serializeForm(e.target)
 
     fetch('notifier.send', {
       method: 'POST',

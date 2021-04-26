@@ -8,17 +8,14 @@ use Pollen\Http\UrlHelper;
 use Pollen\Partial\PartialDriver;
 use Pollen\Partial\PartialManagerInterface;
 use Pollen\PwaPush\PwaPushInterface;
+use Pollen\PwaPush\PwaPushProxy;
 use Pollen\Support\Proxy\SessionProxy;
 use Throwable;
 
 class PwaPushPartial extends PartialDriver
 {
+    use PwaPushProxy;
     use SessionProxy;
-
-    /**
-     * @var PwaPushInterface
-     */
-    protected $pwaPush;
 
     /**
      * @param PwaPushInterface $pwaPush
@@ -26,7 +23,7 @@ class PwaPushPartial extends PartialDriver
      */
     public function __construct(PwaPushInterface $pwaPush, PartialManagerInterface $partialManager)
     {
-        $this->pwaPush = $pwaPush;
+        $this->setPwaPush($pwaPush);
 
         parent::__construct($partialManager);
     }
@@ -70,14 +67,16 @@ class PwaPushPartial extends PartialDriver
                     ' l\'application.',
                 'close'      => '&#x2715;',
                 'timeout'    => 5000,
-                'handler'    => file_get_contents($this->pwaPush->resources('assets/dist/img/bell-ico.svg')),
+                'handler'    => file_get_contents($this->pwaPush()->resources('assets/dist/img/bell-ico.svg')),
                 'observe'    => true,
             ]
         );
     }
 
     /**
-     * @inheritDoc
+     * {@inheritDoc}
+     *
+     * @throws Throwable
      */
     public function render(): string
     {
@@ -119,7 +118,7 @@ class PwaPushPartial extends PartialDriver
 
         if (!$this->get('public_key')) {
             try {
-                $this->set('public_key', $this->pwaPush->getPublicKey());
+                $this->set('public_key', $this->pwaPush()->getPublicKey());
             } catch (Throwable $e) {
                 throw $e;
             }
@@ -144,6 +143,6 @@ class PwaPushPartial extends PartialDriver
      */
     public function viewDirectory(): string
     {
-        return $this->pwaPush->resources('/views/partial/pwa-push');
+        return $this->pwaPush()->resources('/views/partial/pwa-push');
     }
 }

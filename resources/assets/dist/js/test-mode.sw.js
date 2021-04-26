@@ -12,8 +12,6 @@ self.addEventListener('push', function (event) {
 
     delete json.title
 
-    console.log(json)
-
     return self.registration.showNotification(title, json)
   };
 
