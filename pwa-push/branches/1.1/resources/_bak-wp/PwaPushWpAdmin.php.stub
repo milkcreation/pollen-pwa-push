@@ -1,0 +1,407 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\PwaPush;
+
+use Illuminate\Pagination\LengthAwarePaginator;
+use Pollen\Http\UrlManipulator;
+use Pollen\PwaPush\Eloquent\Message;
+use Pollen\PwaPush\Eloquent\Subscriber;
+use Pollen\Support\Proxy\HttpRequestProxy;
+use Pollen\Support\Proxy\RouterProxy;
+use Pollen\Support\Proxy\SessionProxy;
+use Pollen\View\ViewEngine;
+use Pollen\WpUser\WpUserProxy;
+
+class PwaPushWpAdmin
+{
+    use HttpRequestProxy;
+    use RouterProxy;
+    use SessionProxy;
+    use WpUserProxy;
+
+    /**
+     * Liste des abonnés testeurs.
+     * @var array
+     */
+    protected $testerIds;
+
+    /**
+     * Instance du moteur de gabarits d'affichage.
+     * @var ViewEngine
+     */
+    protected $viewEngine;
+
+    public function __construct()
+    {
+        add_action(
+            'admin_menu',
+            function () {
+                add_menu_page(
+                    __('Messages de notification Push', 'theme'),
+                    __('Messages Push', 'theme'),
+                    'manage_options',
+                    'pwa-push',
+                    [$this, 'messageListRender'],
+                    'data:image/svg+xml;base64,' . base64_encode(
+                        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="15 15 70 70" fill="black">
+    <path d="M44.61,49.54a1.15,1.15,0,0,1-.81-.33l-6.57-6.58H18.29a3,3,0,0,1-3-3V27.9a3,3,0,0,1,3-3H49.55a3,3,0,0,1,3,3V39.61a3,3,0,0,1-3,3h-3.5a.29.29,0,0,0-.29.29v5.47a1.16,1.16,0,0,1-.71,1.07A1.32,1.32,0,0,1,44.61,49.54ZM18.29,27.18a.72.72,0,0,0-.72.72V39.61a.73.73,0,0,0,.72.73H37.34a2.05,2.05,0,0,1,1.44.59l4.69,4.69v-2.7a2.59,2.59,0,0,1,2.58-2.58h3.5a.73.73,0,0,0,.72-.73V27.9a.72.72,0,0,0-.72-.72ZM37.34,42.63h0Z"/>
+    <path d="M65.06,72.79h0l-31.41,0a1.15,1.15,0,0,1-1.14-1.15l0-30.12a1.14,1.14,0,0,1,1.15-1.14h3.64a2.05,2.05,0,0,1,1.44.59l4.69,4.69v-2.7a2.59,2.59,0,0,1,2.58-2.58h3.5a.73.73,0,0,0,.72-.73V27.9a.72.72,0,0,0-.72-.72H33.72a1.13,1.13,0,0,1-.81-.34,1.14,1.14,0,0,1-.34-.81V22.79a1.18,1.18,0,0,1,.33-.82,1,1,0,0,1,.82-.33l31.4,0a1.14,1.14,0,0,1,1.15,1.15l0,22.79a1.15,1.15,0,0,1-1.15,1.14H50.45a.73.73,0,0,0-.72.73V59.2a.72.72,0,0,0,.72.72H54a2.59,2.59,0,0,1,2.58,2.59V65.2l4.69-4.68a2,2,0,0,1,1.44-.6h2.41a1.14,1.14,0,0,1,1.15,1.15V71.65A1.15,1.15,0,0,1,65.06,72.79ZM34.81,70.45l29.1,0V62.22H62.66L56.2,68.79a1.15,1.15,0,0,1-2-.81V62.51a.29.29,0,0,0-.29-.29h-3.5a3,3,0,0,1-3-3V47.49a3,3,0,0,1,3-3H64L64,24l-29.11,0v.94H49.55a3,3,0,0,1,3,3V39.61a3,3,0,0,1-3,3h-3.5a.29.29,0,0,0-.29.29v5.47a1.15,1.15,0,0,1-2,.82l-6.65-6.65-2.3,0Z"/>
+    <path d="M70.31,46.76H65.1A1.13,1.13,0,0,1,64,45.61L64,24l-29.11,0V26a1.15,1.15,0,0,1-1.15,1.15h-5.2a1.11,1.11,0,0,1-.81-.34,1.14,1.14,0,0,1-.34-.81V22.29a6.89,6.89,0,0,1,6.87-6.87h0l30.36.05a6.88,6.88,0,0,1,6.87,6.88l0,23.27A1.14,1.14,0,0,1,70.31,46.76Zm-4.06-2.3h2.91l0-22.11a4.6,4.6,0,0,0-4.58-4.59l-30.35,0h0a4.6,4.6,0,0,0-4.58,4.58v2.58h2.9V22.79a1.18,1.18,0,0,1,.33-.82,1,1,0,0,1,.82-.33l31.4,0a1.14,1.14,0,0,1,1.15,1.15Z"/>
+    <path d="M64.53,84.58h0l-30.35,0a6.89,6.89,0,0,1-6.87-6.89l.05-36.17a1.15,1.15,0,0,1,1.15-1.14h5.2a1.14,1.14,0,0,1,1.15,1.15l0,29,29.1,0V61.07a1.16,1.16,0,0,1,1.15-1.15h5.21a1.11,1.11,0,0,1,.81.34,1.13,1.13,0,0,1,.34.81l0,16.65a6.88,6.88,0,0,1-6.88,6.86ZM29.65,42.63l0,35a4.59,4.59,0,0,0,4.57,4.59l30.35,0h0a4.58,4.58,0,0,0,4.58-4.57l0-15.49H66.22v9.43a1.15,1.15,0,0,1-1.15,1.14h0l-31.41,0a1.15,1.15,0,0,1-1.14-1.15l0-29Z"/>
+    <path d="M55.39,69.13A1.12,1.12,0,0,1,55,69,1.15,1.15,0,0,1,54.24,68V62.51a.29.29,0,0,0-.29-.29h-3.5a3,3,0,0,1-3-3V47.49a3,3,0,0,1,3-3H81.71a3,3,0,0,1,3,3V59.2a3,3,0,0,1-3,3h-19L56.2,68.79A1.16,1.16,0,0,1,55.39,69.13ZM50.45,46.76a.73.73,0,0,0-.72.73V59.2a.72.72,0,0,0,.72.72H54a2.59,2.59,0,0,1,2.58,2.59V65.2l4.69-4.68a2,2,0,0,1,1.44-.6h19a.72.72,0,0,0,.72-.72V47.49a.73.73,0,0,0-.72-.73Z"/>
+    <path d="M54.07,78.45H44.72a1.15,1.15,0,1,1,0-2.3h9.35a1.15,1.15,0,1,1,0,2.3Z"/>
+    <polygon points="76.53 55.35 76.53 51.37 72.54 51.37 72.54 55.35 76.53 55.35 76.53 55.35"/>
+    <polygon points="68.3 55.35 68.3 51.37 64.31 51.37 64.31 55.35 68.3 55.35 68.3 55.35"/>
+    <polygon points="60.09 55.35 60.09 51.37 56.1 51.37 56.1 55.35 60.09 55.35 60.09 55.35"/>
+    <polygon points="43.63 35.77 43.63 31.78 39.64 31.78 39.64 35.77 43.63 35.77 43.63 35.77"/>
+    <polygon points="35.39 35.77 35.39 31.78 31.41 31.78 31.41 35.77 35.39 35.77 35.39 35.77"/>
+    <polygon points="27.18 35.77 27.18 31.78 23.2 31.78 23.2 35.77 27.18 35.77 27.18 35.77"/>
+</svg>'
+                    )
+                );
+
+                add_submenu_page(
+                    'pwa-push',
+                    __('Liste des messages de notification Push', 'theme'),
+                    __('Tous les messages', 'theme'),
+                    'manage_options',
+                    'pwa-push'
+                );
+
+                add_submenu_page(
+                    'pwa-push',
+                    __('Ajout d\'un message de notification Push', 'theme'),
+                    __('Ajouter', 'theme'),
+                    'manage_options',
+                    'pwa-push-edit',
+                    [$this, 'messageEditRender']
+                );
+
+                add_submenu_page(
+                    'pwa-push',
+                    __('Liste des abonnés aux notifications Push', 'theme'),
+                    __('Tous les abonnés', 'theme'),
+                    'manage_options',
+                    'pwa-push-subscriber',
+                    [$this, 'subscriberListRender']
+                );
+            }
+        );
+
+        add_action(
+            'admin_notices',
+            function () {
+                if ($flash = $this->session()->flash('pwa-push')) {
+                    $class = 'notice notice-' . ($flash['type'] ?? 'error');
+
+                    $message = $flash['message'] ?? __('Une erreur est survenue.', 'theme');
+
+                    printf('<div class="%1$s"><p>%2$s</p></div>', esc_attr($class), esc_html($message));
+                }
+            }
+        );
+    }
+
+    /**
+     * Récupération de la liste des identifiant de qualification des abonnés testeurs.
+     *
+     * @return int[]|array
+     */
+    protected function getTesterIds(): array
+    {
+        if ($this->testerIds === null) {
+            $this->testerIds = array_map('intval', get_option('pwa_push_tester_ids', []));
+        }
+
+        return $this->testerIds;
+    }
+
+    /**
+     * Vérifie si un abonnés fait partie de la liste des testeurs.
+     *
+     * @param int $subscriber_id
+     *
+     * @return bool
+     */
+    protected function isTester(int $subscriber_id): bool
+    {
+        return in_array($subscriber_id, $this->getTesterIds(), true);
+    }
+
+    /**
+     * Vérifie si les messages de notification peuvent être testés.
+     *
+     * @return bool
+     */
+    protected function isTestable(): bool
+    {
+        return !empty($this->getTesterIds());
+    }
+
+    /**
+     * Url de suppression d'un message.
+     *
+     * @param int $message_id
+     *
+     * @return string
+     */
+    public function messageDeleteUrl(int $message_id): string
+    {
+        return $this->router()->getNamedRouteUrl(
+            'admin.pwa-push.message.delete',
+            [
+                'id'           => $message_id,
+                'http_referer' => $this->messageListUrl(),
+            ]
+        );
+    }
+
+    /**
+     * Url d'édition d'un message.
+     *
+     * @param int $message_id
+     *
+     * @return string
+     */
+    public function messageEditUrl(int $message_id = 0): string
+    {
+        $args = [
+            'page' => 'pwa-push-edit',
+        ];
+        if ($message_id) {
+            $args['message_id'] = $message_id;
+        }
+        return (new UrlManipulator($this->httpRequest()->getBaseUrl()))->with($args)->render();
+    }
+
+    /**
+     * Url d'affichage de la liste des messages.
+     *
+     * @return string
+     */
+    public function messageListUrl(): string
+    {
+        return (new UrlManipulator($this->httpRequest()->getBaseUrl()))->with(
+            ['page' => 'pwa-push']
+        )->render();
+    }
+
+    /**
+     * Url d'édition d'un nouveau message.
+     *
+     * @return string
+     */
+    public function messageNewUrl(): string
+    {
+        return (new UrlManipulator($this->httpRequest()->getBaseUrl()))->with(
+            [
+                'page' => 'pwa-push-edit',
+            ]
+        )->render();
+    }
+
+    /**
+     * Url de test d'envoi d'un message.
+     *
+     * @param int $message_id
+     *
+     * @return string
+     */
+    public function messageTestUrl(int $message_id): string
+    {
+        if ($this->isTestable()) {
+            return $this->router()->getNamedRouteUrl(
+                'admin.pwa-push.message.test',
+                [
+                    'id'           => $message_id,
+                    'http_referer' => $this->messageListUrl(),
+                ]
+            );
+        }
+        return '';
+    }
+
+    /**
+     * Url d'expédition d'un message.
+     *
+     * @param int $message_id
+     *
+     * @return string
+     */
+    public function messageSendUrl(int $message_id): string
+    {
+        return $this->router()->getNamedRouteUrl(
+            'admin.pwa-push.message.send',
+            [
+                'id'           => $message_id,
+                'http_referer' => $this->messageListUrl(),
+            ]
+        );
+    }
+
+    /**
+     * @return void
+     */
+    public function messageEditRender(): void
+    {
+        @ wp_enqueue_media();
+        wp_enqueue_style('tify_control-media_image');
+        wp_enqueue_script('tify_control-media_image');
+
+        $action = $this->router()->getNamedRouteUrl('admin.pwa-push.message.store');
+        $message_id = (int)$this->httpRequest()->input('message_id', 0);
+        $message = is_numeric($message_id) ? Message::on()->find($message_id) : null;
+        $http_referer = $this->messageEditUrl($message_id);
+        $new_url = $this->messageNewUrl();
+
+        echo $this->view('message-edit', compact('action', 'http_referer', 'message', 'new_url'));
+    }
+
+    /**
+     * @return void
+     */
+    public function messageListRender(): void
+    {
+        /** @var LengthAwarePaginator $messages */
+        $messages = Message::on()->orderBy('send_at')
+            ->paginate(20, ['*'], 'paged', $this->httpRequest()->input('paged', 1));
+        $messages->setPath($this->messageListUrl());
+
+        if ($messages->total()) {
+            /** @var Message $message */
+            foreach ($messages as $message) {
+                $message->setAttribute('edit_url', $this->messageEditUrl($message->id));
+                $message->setAttribute('delete_url', $this->messageDeleteUrl($message->id));
+                $message->setAttribute('send_url', $this->messageSendUrl($message->id));
+                $message->setAttribute('test_url', $this->messageTestUrl($message->id));
+                $message->setAttribute(
+                    'author',
+                    $message->author_id ? $this->wpUser()->user($message->author_id) : null
+                );
+
+                $recipients = (($r = $message->context['recipients'] ?: 'all') && ($r === 'members'))
+                    ? [
+                    'label' => __('Membres uniquement', 'theme'),
+                    'value' => $r,
+                    'icon'  => 'dashicons-businessperson'
+                ]
+                    : [
+                    'label' => __('Tout le monde', 'theme'),
+                    'value' => $r,
+                    'icon'  => 'dashicons-groups'
+                ];
+                $message->setAttribute('recipients', $recipients);
+            }
+        }
+
+        $new_url = $this->messageNewUrl();
+
+        echo $this->view('message-list', compact('messages', 'new_url'));
+    }
+
+    /**
+     * Lien d'ajout d'un abonné en tant que tester.
+     *
+     * @param int $subscriber_id
+     *
+     * @return string
+     */
+    public function subscriberAddTesterUrl(int $subscriber_id): string
+    {
+        if (!$this->isTester($subscriber_id)) {
+            return $this->router()->getNamedRouteUrl(
+                'admin.pwa-push.subscriber.add-tester',
+                [
+                    'id'           => $subscriber_id,
+                    'http_referer' => $this->subscriberListUrl(),
+                ]
+            );
+        }
+
+        return '';
+    }
+
+    /**
+     * Lien de suppression d'un abonné en tant que tester.
+     *
+     * @param int $subscriber_id
+     *
+     * @return string
+     */
+    public function subscriberDelTesterUrl(int $subscriber_id): string
+    {
+        if ($this->isTester($subscriber_id)) {
+            return $this->router()->getNamedRouteUrl(
+                'admin.pwa-push.subscriber.del-tester',
+                [
+                    'id'           => $subscriber_id,
+                    'http_referer' => $this->subscriberListUrl(),
+                ]
+            );
+        }
+        return '';
+    }
+
+    /**
+     * Url d'affichage de la liste des messages.
+     *
+     * @return string
+     */
+    public function subscriberListUrl(): string
+    {
+        return (new UrlManipulator($this->httpRequest()->getBaseUrl()))->with(
+            ['page' => 'pwa-push-subscriber']
+        )->render();
+    }
+
+    /**
+     * @return void
+     */
+    public function subscriberListRender(): void
+    {
+        $subscribers = Subscriber::on()->paginate(20, ['*'], 'paged', $this->httpRequest()->input('paged', 1));
+
+        if ($subscribers->total()) {
+            /** @var Subscriber $sub */
+            foreach ($subscribers as $sub) {
+                if ($sub->user_id && ($user = $this->wpUser()->user($sub->user_id))) {
+                    $sub->setAttribute('user', $user);
+                }
+                $sub->setAttribute('add_tester_url', $this->subscriberAddTesterUrl($sub->id));
+                $sub->setAttribute('del_tester_url', $this->subscriberDelTesterUrl($sub->id));
+                $sub->setAttribute('is_tester', $this->isTester($sub->id));
+            }
+        }
+
+        echo $this->view('subscriber-list', compact('subscribers'));
+    }
+
+    /**
+     * Moteur d'affichage des gabarits d'affichage.
+     *
+     * @return ViewEngine
+     */
+    protected function viewEngine(): ViewEngine
+    {
+        if ($this->viewEngine === null) {
+            $this->viewEngine = (new ViewEngine())->setDirectory(get_template_directory() . '/views/admin/pwa-push');
+        }
+
+        return $this->viewEngine;
+    }
+
+    /**
+     * Récupération de l'affichage d'un gabarit.
+     *
+     * @param string $view Nom de qualification du gabarit.
+     * @param array $data Liste des variables passées en argument.
+     *
+     * @return string
+     */
+    protected function view(string $view, array $data = []): string
+    {
+        return $this->viewEngine()->render($view, $data);
+    }
+}

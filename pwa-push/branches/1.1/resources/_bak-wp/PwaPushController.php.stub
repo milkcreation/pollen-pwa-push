@@ -1,0 +1,319 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use App\PwaPush\PwaPushMessageSend;
+use App\PwaPush\PwaPushMessageStore;
+use Carbon\Carbon;
+use InvalidArgumentException;
+use Pollen\Http\ResponseInterface;
+use Pollen\PwaPush\PwaPushProxy;
+use Pollen\PwaPush\Eloquent\Message;
+use Pollen\Routing\BaseViewController;
+use Pollen\Support\Env;
+use Pollen\Support\Proxy\LogProxy;
+use Pollen\Support\Proxy\SessionProxy;
+use Throwable;
+
+class PwaPushController extends BaseViewController
+{
+    use LogProxy;
+    use PwaPushProxy;
+    use SessionProxy;
+
+    /**
+     * @return ResponseInterface
+     *
+     * @throws Throwable
+     */
+    public function delivery(): ResponseInterface
+    {
+        $basePath = realpath(ABSPATH . Env::get('APP_RESOURCES'));
+        $log = $this->log()->registerChannel(
+            'pwa-push',
+            [
+                'filename' => $basePath. '/log/pwa-push-delivery',
+            ]
+        );
+
+        if (!$message = Message::on()->where('send_at', '<=', Carbon::now())->orderBy('send_at')->first()) {
+            return $this->json(
+                [
+                    'success' => false,
+                    'data'    => __('Aucun message de notification à délivrer.', 'theme'),
+                ]
+            );
+        }
+
+        try {
+            $pwaMessageSend = new PwaPushMessageSend();
+            $reports = $pwaMessageSend($message->id);
+
+            if ($log) {
+                foreach ($reports as $report) {
+                    $log->success(__('Le message a été délivré avec succès.', 'theme'), $report);
+                }
+            }
+
+            return $this->json(
+                [
+                    'success' => true,
+                    'data'    => $reports
+                ]
+            );
+        } catch (InvalidArgumentException $e) {
+            if ($log) {
+                $log->error($e->getMessage());
+            }
+
+            return $this->json(
+                [
+                    'success' => false,
+                    'data'    => $e->getMessage(),
+                ]
+            );
+        }
+    }
+
+    /**
+     * @param numeric $message_id
+     *
+     * @return ResponseInterface
+     *
+     * @throws Throwable
+     */
+    public function messageDelete($message_id): ResponseInterface
+    {
+        $referer = $this->httpRequest()->input('http_referer');
+
+        if ($message = Message::on()->find($message_id)) {
+            $message->delete();
+
+            $this->session()->flash(
+                [
+                    'pwa-push' => [
+                        'type'    => 'success',
+                        'message' => __('Le message de notification a été supprimé avec succès.', 'theme'),
+                    ],
+                ]
+            );
+        } else {
+            $this->session()->flash(
+                [
+                    'pwa-push' => [
+                        'type'    => 'success',
+                        'message' => __('Impossible de supprimer le message de notification.', 'theme'),
+                    ],
+                ]
+            );
+        }
+
+        return $this->redirect($referer);
+    }
+
+    /**
+     * @param numeric $message_id
+     *
+     * @return ResponseInterface
+     *
+     * @throws Throwable
+     */
+    public function messageSend($message_id): ResponseInterface
+    {
+        $pwaMessageSend = new PwaPushMessageSend();
+        $referer = $this->httpRequest()->input('http_referer');
+
+        try {
+            $pwaMessageSend((int)$message_id);
+
+            $this->session()->flash(
+                [
+                    'pwa-push' => [
+                        'type'    => 'success',
+                        'message' => __('Le message de notification a été expédié avec succès.', 'theme'),
+                    ],
+                ]
+            );
+        } catch (InvalidArgumentException $e) {
+            $this->session()->flash(
+                [
+                    'pwa-push' => [
+                        'type'    => 'error',
+                        'message' => $e->getMessage(),
+                    ],
+                ]
+            );
+        }
+
+        return $this->redirect($referer);
+    }
+
+    /**
+     * @param numeric $message_id
+     *
+     * @return ResponseInterface
+     *
+     * @throws Throwable
+     */
+    public function messageTest($message_id): ResponseInterface
+    {
+        $referer = $this->httpRequest()->input('http_referer');
+
+        if (!$testerIds = array_map('intval', get_option('pwa_push_tester_ids', []))) {
+            $this->session()->flash(
+                [
+                    'pwa-push' => [
+                        'type'    => 'error',
+                        'message' => __('Aucun compte abonné de test n\'est enregistré.', 'theme'),
+                    ],
+                ]
+            );
+            return $this->redirect($referer);
+        }
+
+        $pwaMessageSend = new PwaPushMessageSend();
+
+        try {
+            $pwaMessageSend((int)$message_id, false, $testerIds);
+
+            $this->session()->flash(
+                [
+                    'pwa-push' => [
+                        'type'    => 'success',
+                        'message' => __('Le message de notification de test a été expédié avec succès.', 'theme'),
+                    ],
+                ]
+            );
+        } catch (InvalidArgumentException $e) {
+            $this->session()->flash(
+                [
+                    'pwa-push' => [
+                        'type'    => 'error',
+                        'message' => $e->getMessage(),
+                    ],
+                ]
+            );
+        }
+
+        return $this->redirect($referer);
+    }
+
+    /**
+     * @return ResponseInterface
+     */
+    public function messageStore(): ResponseInterface
+    {
+        $pwaMessageStore = new PwaPushMessageStore();
+
+        $referer = $this->httpRequest()->input('http_referer');
+
+        $datas = [
+            'id'        => (int)$this->httpRequest()->input('message_id', 0),
+            'payload'   => $this->httpRequest()->input('payload'),
+            'context'   => $this->httpRequest()->input('context'),
+            'author_id' => get_current_user_id(),
+            'send_at'   => $this->httpRequest()->input()->pull('send_at'),
+        ];
+
+        try {
+            $pwaMessageStore($datas);
+        } catch (InvalidArgumentException $e) {
+            $this->session()->flash(
+                [
+                    'pwa-push' => [
+                        'type'    => 'error',
+                        'message' => $e->getMessage(),
+                    ],
+                ]
+            );
+
+            return $this->redirect($referer);
+        }
+
+        if (!empty($datas['id'])) {
+            $this->session()->flash(
+                [
+                    'pwa-push' => [
+                        'type'    => 'success',
+                        'message' => __('Le message de notification a été créé avec succès.', 'theme'),
+                    ],
+                ]
+            );
+        } else {
+            $this->session()->flash(
+                [
+                    'pwa-push' => [
+                        'type'    => 'success',
+                        'message' => __('Le message de notification a été mis à jour avec succès.', 'theme'),
+                    ],
+                ]
+            );
+        }
+
+        return $this->redirect($referer);
+    }
+
+    /**
+     * @param numeric $subscriber_id
+     *
+     * @return ResponseInterface
+     */
+    public function subscriberAddTester($subscriber_id): ResponseInterface
+    {
+        $referer = $this->httpRequest()->input('http_referer');
+        $testerIds = array_map('intval', get_option('pwa_push_tester_ids', []));
+
+        if (!in_array($subscriber_id, $testerIds, true)) {
+            $testerIds[] = $subscriber_id;
+            update_option('pwa_push_tester_ids', $testerIds);
+        }
+
+        $this->session()->flash(
+            [
+                'pwa-push' => [
+                    'type'    => 'success',
+                    'message' => __('L\'abonné a été ajouté aux testeurs avec succès.', 'theme'),
+                ],
+            ]
+        );
+
+        return $this->redirect($referer);
+    }
+
+    /**
+     * @param numeric $subscriber_id
+     *
+     * @return ResponseInterface
+     */
+    public function subscriberDelTester($subscriber_id): ResponseInterface
+    {
+        $referer = $this->httpRequest()->input('http_referer');
+        $testerIds = array_map('intval', get_option('pwa_push_tester_ids', []));
+
+        if (!in_array($subscriber_id, $testerIds, true)) {
+            $testerIds = array_diff($testerIds, [$subscriber_id]);
+            update_option('pwa_push_tester_ids', $testerIds);
+        }
+
+        $this->session()->flash(
+            [
+                'pwa-push' => [
+                    'type'    => 'success',
+                    'message' => __('L\'abonné a été supprimé des testeurs avec succès.', 'theme'),
+                ],
+            ]
+        );
+
+        return $this->redirect($referer);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    protected function viewEngineDirectory(): string
+    {
+        return get_template_directory() . '/views/api/pwa-push';
+    }
+}
