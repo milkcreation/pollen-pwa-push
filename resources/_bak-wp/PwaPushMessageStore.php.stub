@@ -1,0 +1,70 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\PwaPush;
+
+use Carbon\Carbon;
+use InvalidArgumentException;
+use Pollen\PwaPush\Eloquent\Message;
+
+class PwaPushMessageStore
+{
+    /**
+     * @param array $datas
+     *
+     * @return bool
+     *
+     * @throws InvalidArgumentException
+     */
+    public function __invoke(array $datas): bool
+    {
+        $updated = (bool)($datas['id'] ?? 0);
+
+        if (empty($datas['payload']['title']) && empty($datas['payload']['body']) && empty($datas['payload']['image'])) {
+            throw new InvalidArgumentException(
+                __(
+                    'Veuillez au moins renseigner un titre ou un contenu ou une image pour la notification Push.',
+                    'theme'
+                )
+            );
+        }
+
+        $image = $datas['payload']['image'];
+        if (is_numeric($image)) {
+            if ($img = wp_get_attachment_image_src($image, [1920, 1080])) {
+                $datas['payload']['image'] = $img[0];
+            } else {
+                unset($datas['payload']['image']);
+            }
+        }
+
+        $payload = wp_unslash($datas['payload']);
+        $context = wp_unslash($datas['context'] ?? []);
+        $send_at = !empty($datas['send_at'])
+            ? Carbon::createFromTimeString($datas['send_at'])->toDateTimeString() : null;
+        $author_id = $datas['author_id'] ?? 0;
+
+        if (!$updated) {
+            $created_at = Carbon::now();
+
+            Message::on()->create(compact('payload', 'context', 'created_at', 'author_id', 'send_at'));
+        } else {
+            $id = (int) $datas['id'];
+            $updated_at = Carbon::now();
+
+            if ($message = Message::on()->find($id)) {
+                $message->update(compact('payload', 'context', 'updated_at', 'author_id', 'send_at'));
+            } else {
+                throw new InvalidArgumentException(
+                    __(
+                        'Le message à mettre à jour n\'est pas disponible.',
+                        'theme'
+                    )
+                );
+            }
+        }
+
+        return true;
+    }
+}

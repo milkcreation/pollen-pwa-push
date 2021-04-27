@@ -91,7 +91,6 @@ class PwaPushController extends AbstractPwaPushController
                 [
                     'auth_token'       => $subscription['authToken'],
                     'content_encoding' => $subscription['contentEncoding'],
-                    'endpoint'         => $subscription['endpoint'],
                     'public_key'       => $subscription['publicKey'],
                     'updated_at'       => Carbon::now(),
                     'client_ip'        => $this->httpRequest()->getClientIp(),
@@ -106,6 +105,19 @@ class PwaPushController extends AbstractPwaPushController
                 'data'    => compact('subscription', 'user_id'),
             ];
         }
+
+        Subscriber::on()->create(
+            [
+                'auth_token'       => $subscription['authToken'],
+                'content_encoding' => $subscription['contentEncoding'],
+                'endpoint'         => $subscription['endpoint'],
+                'public_key'       => $subscription['publicKey'],
+                'updated_at'       => Carbon::now(),
+                'client_ip'        => $this->httpRequest()->getClientIp(),
+                'user_agent'       => $this->httpRequest()->getUserAgent(),
+                'user_id'          => $user_id,
+            ]
+        );
 
         return [
             'success' => false,

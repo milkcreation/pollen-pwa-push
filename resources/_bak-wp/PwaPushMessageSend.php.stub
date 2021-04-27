@@ -1,0 +1,109 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\PwaPush;
+
+use Illuminate\Database\Eloquent\Collection;
+use InvalidArgumentException;
+use Pollen\PwaPush\Eloquent\Message;
+use Pollen\PwaPush\Eloquent\Subscriber;
+use Pollen\PwaPush\PwaPushProxy;
+use Pollen\WpPost\WpPostProxy;
+use Pollen\WpUser\WpUserProxy;
+use Pollen\WpUser\WpUserQueryInterface;
+use Throwable;
+
+class PwaPushMessageSend
+{
+    use PwaPushProxy;
+    use WpPostProxy;
+    use WpUserProxy;
+
+    /**
+     * @param int $message_id
+     * @param bool $delete
+     * @param int[]|array $subscriber_ids
+     *
+     * @return array
+     *
+     * @throws Throwable
+     */
+    public function __invoke(int $message_id, $delete = true, array $subscriber_ids = []): array
+    {
+        if (!$message = Message::on()->find($message_id)) {
+            throw new InvalidArgumentException(__('Impossible de récupérer le message.', 'theme'));
+        }
+
+        if (!empty($subscriber_ids)) {
+            $subscribers = Subscriber::on()->whereIn('id', $subscriber_ids)->get();
+        } else {
+            $subscribers = $this->getSubscriberDispatcher($message);
+        }
+
+        $reports = [];
+        foreach ($subscribers as $subscriber) {
+            try {
+                $subscription = $this->pwaPush()->registerSubscription($subscriber->subscription);
+                $report = $this->pwaPush()->sendNotification(
+                    $subscription,
+                    $message->payload
+                )->jsonSerialize();
+
+                $report['message'] = $message->toArray();
+                $report['subscriber'] = $subscriber->toArray();
+
+                $reports[] = $report;
+            } catch (Throwable $e) {
+                throw new InvalidArgumentException(__('Impossible d\'expédier le message.', 'theme'));
+            }
+        }
+
+        if ($delete) {
+            $message->delete();
+        }
+
+        return $reports;
+    }
+
+    /**
+     * @param Message $message
+     *
+     * @return Collection|Subscriber[]
+     */
+    protected function getSubscriberDispatcher(Message $message)
+    {
+        $recipients = $message->context['recipients'] ?? 'all';
+
+        if ($recipients === 'all') {
+            return Subscriber::on()->get();
+        }
+
+        $subscribers = Subscriber::on()->where('user_id', '>', 0)->get();
+        foreach ($subscribers as $i => $subscriber) {
+            if(($user = $this->wpUser()->user($subscriber->user_id)) && ($user->roleIn('tify_membership'))) {
+                $subscriber->setAttribute('user', $user);
+            } else {
+                unset($subscribers[$i]);
+            }
+        }
+
+        $post_id = $message->context['post_id'] ?? 0;
+        if ($post_id && ($post = $this->wpPost()->post($post_id)) && $post->typeIn('document')) {
+            $cats = $post->getMetaMulti('_document_cat');
+
+            if (!empty($cats)) {
+                foreach ($subscribers as $i => $subscriber) {
+                    /** @var WpUserQueryInterface $user */
+                    $user = $subscriber->getAttribute('user');
+                    $userCats = $user->getMetaSingle('terms_of_office', []);
+                    if (!array_intersect($cats, $userCats)) {
+                        unset($subscribers[$i]);
+                    }
+                }
+            }
+        }
+
+        return count($subscribers) ? $subscribers : [];
+    }
+}

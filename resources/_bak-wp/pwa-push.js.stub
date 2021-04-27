@@ -1,0 +1,25 @@
+'use strict'
+
+// Dépendances
+import flatpickr from "flatpickr";
+import {French} from "flatpickr/dist/l10n/fr"
+
+// Personnalisation
+window.addEventListener('load', () => {
+  const $datepicker = document.getElementById('PwaPush-formSchedule')
+
+  if ($datepicker) {
+    let date = $datepicker.getAttribute('value')
+
+    flatpickr($datepicker, {
+      dateFormat: 'Y-m-d H:i:s',
+      enableTime: true,
+      altInput: true,
+      altFormat: 'd/m/Y H:i',
+      time_24hr: false,
+      defaultDate: date ? null : new Date(Date.now() + 60*60000),
+      minDate: Date.now(),
+      locale: French,
+    });
+  }
+})
