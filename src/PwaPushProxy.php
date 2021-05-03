@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Pollen\PwaPush;
 
-use Pollen\Support\StaticProxy;
+use Pollen\Support\ProxyResolver;
 use RuntimeException;
 
 /**
@@ -29,7 +29,7 @@ trait PwaPushProxy
             try {
                 $this->pwaPush = PwaPush::getInstance();
             } catch (RuntimeException $e) {
-                $this->pwaPush = StaticProxy::getProxyInstance(
+                $this->pwaPush = ProxyResolver::getInstance(
                     PwaPushInterface::class,
                     PwaPush::class,
                     method_exists($this, 'getContainer') ? $this->getContainer() : null
