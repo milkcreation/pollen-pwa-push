@@ -81,7 +81,7 @@ class PwaPushMessageSend
 
         $subscribers = Subscriber::on()->where('user_id', '>', 0)->get();
         foreach ($subscribers as $i => $subscriber) {
-            if(($user = $this->wpUser()->user($subscriber->user_id)) && ($user->roleIn('tify_membership'))) {
+            if(($user = $this->wpUser()->get($subscriber->user_id)) && ($user->roleIn('tify_membership'))) {
                 $subscriber->setAttribute('user', $user);
             } else {
                 unset($subscribers[$i]);
@@ -89,7 +89,7 @@ class PwaPushMessageSend
         }
 
         $post_id = $message->context['post_id'] ?? 0;
-        if ($post_id && ($post = $this->wpPost()->post($post_id)) && $post->typeIn('document')) {
+        if ($post_id && ($post = $this->wpPost()->get($post_id)) && $post->typeIn('document')) {
             $cats = $post->getMetaMulti('_document_cat');
 
             if (!empty($cats)) {

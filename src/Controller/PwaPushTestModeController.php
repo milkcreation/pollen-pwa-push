@@ -95,7 +95,7 @@ class PwaPushTestModeController extends AbstractPwaPushController
         $messageCount = count($messages);
         $subscriberCount = Subscriber::on()->count();
 
-        $this->params(
+        $this->datas(
             [
                 'PwaPushMessenger' => [
                     'l10n'     => [
@@ -130,7 +130,7 @@ class PwaPushTestModeController extends AbstractPwaPushController
             ]
         );
 
-        return $this->view('messenger', $this->params()->all());
+        return $this->view('messenger');
     }
 
     /**
@@ -199,7 +199,7 @@ class PwaPushTestModeController extends AbstractPwaPushController
     {
         $subscriberCount = Subscriber::on()->count();
 
-        $this->params(
+        $this->datas(
             [
                 'PwaPushNotifier' => [
                     'l10n' => [
@@ -230,7 +230,7 @@ class PwaPushTestModeController extends AbstractPwaPushController
             ]
         );
 
-        return $this->view('notifier', $this->params()->all());
+        return $this->view('notifier');
     }
 
     /**
@@ -294,7 +294,7 @@ class PwaPushTestModeController extends AbstractPwaPushController
      */
     public function testerRender(): ResponseInterface
     {
-        $this->params(
+        $this->datas(
             [
                 'PwaPushTester' => [
                     'l10n'       => [
@@ -313,7 +313,7 @@ class PwaPushTestModeController extends AbstractPwaPushController
             ]
         );
 
-        return $this->view('tester', $this->params()->all());
+        return $this->view('tester');
     }
 
     /**

@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Pollen\PwaPush;
 
-use Pollen\Container\BaseServiceProvider;
+use Pollen\Container\BootableServiceProvider;
 use Pollen\Pwa\PwaInterface;
 use Pollen\PwaPush\Controller\PwaPushController;
 use Pollen\PwaPush\Middleware\PwaPushTestMiddleware;
 
-class PwaPushServiceProvider extends BaseServiceProvider
+class PwaPushServiceProvider extends BootableServiceProvider
 {
     /**
      * Liste des services fournis.
