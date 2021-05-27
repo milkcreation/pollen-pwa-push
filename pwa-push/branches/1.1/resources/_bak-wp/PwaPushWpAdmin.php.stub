@@ -278,7 +278,7 @@ class PwaPushWpAdmin
                 $message->setAttribute('test_url', $this->messageTestUrl($message->id));
                 $message->setAttribute(
                     'author',
-                    $message->author_id ? $this->wpUser()->user($message->author_id) : null
+                    $message->author_id ? $this->wpUser()->get($message->author_id) : null
                 );
 
                 $recipients = (($r = $message->context['recipients'] ?: 'all') && ($r === 'members'))
@@ -366,7 +366,7 @@ class PwaPushWpAdmin
         if ($subscribers->total()) {
             /** @var Subscriber $sub */
             foreach ($subscribers as $sub) {
-                if ($sub->user_id && ($user = $this->wpUser()->user($sub->user_id))) {
+                if ($sub->user_id && ($user = $this->wpUser()->get($sub->user_id))) {
                     $sub->setAttribute('user', $user);
                 }
                 $sub->setAttribute('add_tester_url', $this->subscriberAddTesterUrl($sub->id));
