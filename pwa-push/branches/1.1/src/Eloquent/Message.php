@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Pollen\PwaPush\Eloquent;
 
 use Carbon\Carbon;
-use Pollen\Database\Drivers\Laravel\Eloquent\AbstractModel;
-use Pollen\Database\Drivers\Laravel\Eloquent\Casts\SerializeCast;
+use Pollen\Database\Eloquent\AbstractModel;
+use Pollen\Database\Eloquent\Casts\SerializedCast;
 
 /**
  * @property-read int $id
@@ -27,8 +27,8 @@ class Message extends AbstractModel
         $this->table = 'pwa_push_message';
 
         $this->casts = [
-            'payload'   => SerializeCast::class,
-            'context'   => SerializeCast::class,
+            'payload'   => SerializedCast::class,
+            'context'   => SerializedCast::class,
             'author_id' => 'int',
             'send_at'   => 'datetime',
         ];
