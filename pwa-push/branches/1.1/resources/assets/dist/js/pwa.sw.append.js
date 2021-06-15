@@ -26,13 +26,15 @@ self.addEventListener('push', event => {
 self.addEventListener('notificationclick', event => {
   event.notification.close()
 
+  const clients = self.clients
+
   event.waitUntil(clients.matchAll({
     type: "window"
   }).then(function(clientList) {
     for (let i = 0; i < clientList.length; i++) {
       let client = clientList[i];
 
-      if (client.url == '/' && 'focus' in client)
+      if (client.url === '/' && 'focus' in client)
         return client.focus()
     }
     if (clients.openWindow)
