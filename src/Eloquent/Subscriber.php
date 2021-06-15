@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Pollen\PwaPush\Eloquent;
 
 use Carbon\Carbon;
-use Pollen\Database\Drivers\Laravel\Eloquent\AbstractModel;
+use Pollen\Database\Eloquent\AbstractModel;
 
 /**
  * @property-read int $id
