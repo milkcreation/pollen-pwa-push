@@ -1,26 +1,20 @@
 {
   "name": "pollen-solutions/pwa-push",
   "description": "Pollen Pwa Push component",
-  "homepage": "https://www.presstify.com/pollen-solutions/pwa-push/",
+  "homepage": "https://github.com/milkcreation/pollen-pwa-push.git",
   "keywords": [
     "pollen-solutions",
     "component",
     "pwa",
     "push"
   ],
-  "time": "2021-06-15",
+  "time": "2021-09-15",
   "license": "MIT",
   "authors": [
     {
       "name": "Jordy Manner",
       "email": "jordy@presstify.com",
       "role": "Developper"
-    }
-  ],
-  "repositories": [
-    {
-      "type": "composer",
-      "url": "https://composer.presstify.com/pollen-solutions/"
     }
   ],
   "require": {
